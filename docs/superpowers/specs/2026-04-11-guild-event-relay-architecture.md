@@ -8,11 +8,11 @@
 
 ## 1. Overview
 
-A single-process Windows desktop application, written in C# on .NET 8 with WPF, that observes a player's Mortal Online 2 session via strictly external Windows APIs and posts notable events to a shared guild Discord webhook. The v1 feature set is Chat Watcher (OCR of a user-marked chat region) and Audio Watcher (WASAPI-loopback reference-clip matching), with a pre-cleared extension path for a v2 Horizon Watcher (region change-detection with image attachments).
+A single-process Windows desktop application, written in C# on .NET 8 with WPF, that observes a player's Mortal Online 2 session via strictly external Windows APIs and posts notable events to a shared guild Discord webhook. The v1 feature set is Chat Watcher (OCR of a user-marked chat region), Audio Watcher (WASAPI-loopback reference-clip matching), and Status Watcher (OCR of the disconnect/login dialog region, emitting `connected ↔ disconnected` transition events), with a pre-cleared extension path for a v2 Horizon Watcher (region change-detection with image attachments).
 
 The design is shaped by three hard constraints from the requirements document:
 
-1. **Anti-cheat safety (§3.6 of requirements):** no interaction of any kind with the MO2 process. Every component in this architecture is audited against this constraint in §10 below.
+1. **Anti-cheat safety (§3.6 of requirements):** no interaction of any kind with the MO2 process. Every component in this architecture is audited against this constraint in §13 below.
 2. **Feature independence (§2.1, §3.3):** each detection feature enables/disables independently at runtime, has its own watchdog, and cannot take down the rest of the app when it fails.
 3. **v2 extensibility (§2.4, §4.1):** the Discord publisher must support text + image payloads from day one so Horizon Watcher does not force a publisher rewrite.
 
@@ -38,36 +38,37 @@ All implementation choices (OCR engine, audio matcher, screen capture) are acces
 The app is a single .NET 8 process with a **Core Host** that owns cross-cutting services and a set of **Features** that plug into it through a shared contract. Events flow in one direction: Feature → Event Bus → Publisher + Event Log.
 
 ```
-┌──────────────────────────── GuildRelay.App (single .NET 8 process) ────────────────────────────┐
-│                                                                                                │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐          ┌────────────────────────┐    │
-│  │ ChatWatcher  │   │ AudioWatcher │   │ HorizonWtch. │          │        Core Host        │    │
-│  │  (feature)   │   │  (feature)   │   │   (v2, feat) │          │                         │    │
-│  │              │   │              │   │              │          │  ┌───────────────────┐  │    │
-│  │ Capture ─┐   │   │ WASAPI ──┐   │   │              │          │  │    Event Bus      │  │    │
-│  │ OCR  ────┤   │   │ Loopback ┤   │   │              │──Event──▶│  │  (in-proc queue)  │──┼───▶│
-│  │ Rules ───┤   │   │ Matcher ─┤   │   │              │          │  └───────┬───────────┘  │    │
-│  │ Dedup ───┘   │   │ Cooldown ┘   │   │              │          │          │              │    │
-│  │              │   │              │   │              │          │  ┌───────▼───────────┐  │    │
-│  │ IFeature     │   │ IFeature     │   │ IFeature     │          │  │ Discord Publisher │  │    │
-│  └──────▲───────┘   └──────▲───────┘   └──────▲───────┘          │  │ (retry/backoff)   │──┼───▶│ Discord
-│         │                  │                  │                  │  └───────┬───────────┘  │    │
-│         │                  │                  │                  │          │              │    │
-│         │       Config / Lifecycle / Watchdog │                  │  ┌───────▼───────────┐  │    │
-│         └──────────────────┴──────────────────┴──────────────────│  │  Event Log        │──┼───▶│ %APPDATA%
-│                                                                  │  │  (rolling file)   │  │    │
-│                                                                  │  └───────────────────┘  │    │
-│                                                                  │  ┌───────────────────┐  │    │
-│                                                                  │  │ Config Store      │  │    │
-│                                                                  │  │ App Log (Serilog) │  │    │
-│                                                                  │  │ Feature Registry  │  │    │
-│                                                                  │  └───────────────────┘  │    │
-│                                                                  └─────────────────────────┘    │
-│  ┌────────────────────┐       ┌─────────────────────────────┐                                   │
-│  │ Tray UI (WPF)      │◀─────▶│  Config Window (WPF)        │                                   │
-│  │ NotifyIcon         │       │  Region Picker overlay      │                                   │
-│  └────────────────────┘       └─────────────────────────────┘                                   │
-└────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────── GuildRelay.App (single .NET 8 process) ────────────────────────────────┐
+│                                                                                                    │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌───────────┐   ┌────────────────────┐   │
+│  │ ChatWatcher  │   │ AudioWatcher │   │ StatusWatch. │   │ HorizonW. │   │    Core Host       │   │
+│  │  (feature)   │   │  (feature)   │   │  (feature)   │   │ (v2,feat) │   │                    │   │
+│  │              │   │              │   │              │   │           │   │ ┌────────────────┐ │   │
+│  │ Capture ─┐   │   │ WASAPI ──┐   │   │ Capture ─┐   │   │           │   │ │   Event Bus    │ │   │
+│  │ OCR  ────┤   │   │ Loopback ┤   │   │ OCR  ────┤   │   │           │──▶│ │ (in-proc queue)│─┼──▶│
+│  │ Rules ───┤   │   │ Matcher ─┤   │   │ Patterns ┤   │   │           │   │ └──────┬─────────┘ │   │
+│  │ Dedup ───┘   │   │ Cooldown ┘   │   │ State    ┤   │   │           │   │        │           │   │
+│  │              │   │              │   │ machine ─┘   │   │           │   │ ┌──────▼─────────┐ │   │
+│  │ IFeature     │   │ IFeature     │   │ IFeature     │   │ IFeature  │   │ │Discord         │ │   │
+│  └──────▲───────┘   └──────▲───────┘   └──────▲───────┘   └─────▲─────┘   │ │Publisher       │─┼──▶│ Discord
+│         │                  │                  │                  │         │ │(retry/backoff) │ │   │
+│         │                  │                  │                  │         │ └──────┬─────────┘ │   │
+│         │        Config / Lifecycle / Watchdog (shared)           │         │        │           │   │
+│         └──────────────────┴──────────────────┴──────────────────┘          │ ┌──────▼─────────┐ │   │
+│                                                                             │ │  Event Log     │─┼──▶│ %APPDATA%
+│                                                                             │ │ (rolling file) │ │   │
+│                                                                             │ └────────────────┘ │   │
+│                                                                             │ ┌────────────────┐ │   │
+│                                                                             │ │ Config Store   │ │   │
+│                                                                             │ │ App Log (Seri) │ │   │
+│                                                                             │ │ Feature Regis. │ │   │
+│                                                                             │ └────────────────┘ │   │
+│                                                                             └────────────────────┘   │
+│  ┌────────────────────┐       ┌─────────────────────────────┐                                        │
+│  │ Tray UI (WPF)      │◀─────▶│  Config Window (WPF)        │                                        │
+│  │ NotifyIcon         │       │  Region Picker overlay      │                                        │
+│  └────────────────────┘       └─────────────────────────────┘                                        │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key properties:**
@@ -75,7 +76,7 @@ The app is a single .NET 8 process with a **Core Host** that owns cross-cutting 
 - Features never talk to each other or to Discord directly. They emit `DetectionEvent` objects to the Event Bus, and that is the only output boundary they have.
 - The Publisher, Event Log, Config Store, and Feature Registry are the only cross-cutting singletons.
 - Enabling or disabling a feature at runtime is `Registry.Start(featureId)` / `Stop(featureId)` — no process restart.
-- Each Feature runs in its own background task(s) with its own watchdog (§9), so a crash in one feature never takes down the rest.
+- Each Feature runs in its own background task(s) with its own watchdog (§10), so a crash in one feature never takes down the rest.
 
 ## 4. Core contracts
 
@@ -211,7 +212,67 @@ public interface IDiscordPublisher {
 - **Device loss handling:** if NAudio raises `RecordingStopped` due to default device change or unplug, the feature enters `Warning`, logs it, and tries to reacquire the default device every 5 s for up to 1 minute. Beyond that, `Error` until the user intervenes.
 - **Sensitivity tuning:** the config UI exposes sensitivity as a 0.0–1.0 slider per rule and shows a live "recent max score" readout so users can tune visually. This is the mitigation for the §4.3 "audio false positives" risk.
 
-## 7. Discord publisher and event log
+## 7. Status Watcher internals
+
+The Status Watcher tracks `connected ↔ disconnected` state for the local player by OCRing a user-marked region where MO2 renders its disconnect / "return to main menu" / login dialogs. It reuses the Chat Watcher's capture, preprocess, and OCR pipeline almost entirely — the only new code is a debounced state machine on top.
+
+```
+┌─ StatusWatcher ────────────────────────────────────────────────────────┐
+│                                                                         │
+│  Timer (3s default)                                                     │
+│      │                                                                  │
+│      ▼                                                                  │
+│  IScreenCapture.CaptureRegion(disconnectDialogRect)                     │
+│      │     BGRA buffer                                                  │
+│      ▼                                                                  │
+│  Preprocess  ── same pipeline type as Chat Watcher, configured          │
+│      │        independently per this feature                            │
+│      ▼                                                                  │
+│  IOcrEngine.RecognizeAsync                                              │
+│      │                                                                  │
+│      ▼                                                                  │
+│  Confidence below threshold OR capture error?                           │
+│      │   yes ──▶ leave state unchanged (do not confirm, do not deny)   │
+│      │   no                                                             │
+│      ▼                                                                  │
+│  Any compiled disconnect pattern matches any OCR line?                  │
+│      │                                                                  │
+│      ├─ yes ─▶ "disconnected" observation                               │
+│      └─ no  ─▶ "connected"   observation                                │
+│                                                                         │
+│  Debounce buffer (last N=3 observations)                                │
+│      │                                                                  │
+│      ▼                                                                  │
+│  State machine: Unknown → Connected → Disconnected → Connected → …     │
+│      │                                                                  │
+│      ▼                                                                  │
+│  On Connected→Disconnected: emit DetectionEvent(                        │
+│      FeatureId="status", RuleLabel="disconnected",                      │
+│      MatchedContent=<phrase>, Extras["transition"]="connected->disc.")  │
+│                                                                         │
+│  On Disconnected→Connected: emit DetectionEvent(                        │
+│      FeatureId="status", RuleLabel="reconnected",                       │
+│      Extras["transition"]="disconnected->connected")                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**State machine rules:**
+
+- Three internal states: **`Unknown`** (no successful OCR since feature start), **`Connected`** (last N confirmed observations were "no disconnect pattern matched"), **`Disconnected`** (last N confirmed observations all matched some disconnect pattern).
+- **First-run is silent.** Transitions out of `Unknown` never emit events, because the app cannot know what the player's actual pre-launch state was. Notifications begin with the first real `Connected ↔ Disconnected` transition after the feature has established a baseline.
+- **Debounce depth `N`** is configurable (default **3**). A state transition requires `N` consecutive confirming observations. At the default 3 s capture cadence, that's a 9 s confirmation window — enough to swallow a single noisy OCR frame without adding noticeable notification lag.
+- **OCR failure is not an observation.** If the capture errors out or OCR confidence is below the threshold, the observation is dropped entirely. The debounce buffer does not advance, and the state does not change. This prevents a run of bad frames from masquerading as a "connected" streak.
+- **Emitted events** go to the same `EventBus` as every other feature. Both transitions share `FeatureId="status"`, differing by `RuleLabel` (`"disconnected"` or `"reconnected"`) and by the `Extras["transition"]` tag. The publisher's existing per-rule template resolution handles the two templates without any publisher changes.
+
+**Reuse notes:**
+
+- `IScreenCapture`, the preprocess pipeline, and `IOcrEngine` are all shared with Chat Watcher. The rule-compilation helper used by Chat Watcher for its text/regex rules is lifted into `GuildRelay.Core` so both features share a single `CompiledPattern` implementation rather than duplicating it.
+- The tray "aggregate status" logic gains a small rule: `Disconnected` is a normal observed state, not an app error. The tray tooltip shows it (`Status: disconnected`), but the tray icon stays green — red is reserved for *the app itself* being broken.
+- The Status Watcher has its own region and its own preprocess pipeline, independent of Chat Watcher. A user can have Chat Watcher disabled and Status Watcher enabled, or vice versa.
+
+**Resolution/DPI drift detection:** identical behavior to the Chat Watcher (§5). A DPI or resolution change puts the feature in `Warning`, stops OCR, and waits for the user to re-pick the region. While in `Warning`, the connected/disconnected state is held at whatever it was immediately before the drift was detected — we do not flip to `Unknown`, because that would cause a spurious "reconnected" or "disconnected" event the next time OCR resumes.
+
+## 8. Discord publisher and event log
 
 ```
 Event Bus (Channel<DetectionEvent>, bounded, drop-newest on overflow)
@@ -246,37 +307,38 @@ Event Bus (Channel<DetectionEvent>, bounded, drop-newest on overflow)
 - **Event log** is a rolling file at `%APPDATA%\GuildRelay\logs\events-YYYYMMDD.jsonl`, one JSON object per line. Retention is time-based (default 14 days). Each event is written twice: once as `Pending` when queued and once as a status update when the publisher finishes. On startup, any leftover `Pending` rows from a prior crash are reclassified as `Dropped (interrupted)`.
 - **Tray warning state** is driven by a small "recent failures" ring buffer. If ≥3 consecutive publishes fail, the tray icon turns yellow; the next success clears it automatically.
 
-## 8. UI: tray, config window, region picker
+## 9. UI: tray, config window, region picker
 
 **Tray UI** (`Hardcodet.NotifyIcon.Wpf`)
 
 - Single `NotifyIcon` bound to a `TrayViewModel` that subscribes to the Feature Registry's status events.
-- Four aggregate states derived from all feature statuses + publisher health: **OK** (green), **Warning** (yellow), **Error** (red), **Paused** (grey). Tooltip shows a per-feature breakdown, e.g. `Chat: on (3 rules) • Audio: on (2 rules) • Publisher: ok`.
-- Context menu per §2.6: **Open Config**, **Pause all / Resume all**, **View Logs folder**, **Quit**. "Pause all" stops capture and audio workers but keeps them resident — no shutdown, no re-init on resume.
+- Four aggregate states derived from all feature statuses + publisher health: **OK** (green), **Warning** (yellow), **Error** (red), **Paused** (grey). Tooltip shows a per-feature breakdown, e.g. `Chat: on (3 rules) • Audio: on (2 rules) • Status: connected • Publisher: ok`. A Status Watcher currently in `Disconnected` is shown in the tooltip but does NOT turn the tray icon yellow — disconnect is a normal observed state, not an app fault.
+- Context menu per §2.7: **Open Config**, **Pause all / Resume all**, **View Logs folder**, **Quit**. "Pause all" stops capture, audio, and status workers but keeps them resident — no shutdown, no re-init on resume.
 
 **Config window** (WPF, MVVM, one tab per feature + a `General` tab)
 
 - **General:** webhook URL (masked textbox + "Test webhook" button that posts a `"GuildRelay connected"` message), player name, global on/off.
 - **Chat Watcher:** region picker button with a thumbnail of the current capture region, capture-interval slider, OCR confidence slider, editable rule list (label + pattern + regex toggle), on-demand test panel that shows current OCR output.
 - **Audio Watcher:** rule list (label + reference clip file picker + sensitivity slider + cooldown seconds), live "recent max score" readout per rule for tuning, warning banner about system audio contamination.
-- **Templates:** per-feature default template with a live preview against a mock event; per-rule overrides listed under their feature.
-- **Config changes apply live** via a `ConfigStore.Apply(newConfig)` method that diff-patches running features. Rule edits are hot-reloaded; region and capture-interval changes restart just that feature's workers (§2.6).
+- **Status Watcher:** region picker button with a thumbnail of the current dialog region, capture-interval slider, OCR confidence slider, debounce-samples spinner, editable list of disconnect phrases (label + pattern + regex toggle), a live read-only indicator showing current state (`Unknown` / `Connected` / `Disconnected`) plus the last observation time. Same preprocess-pipeline editor as the Chat Watcher tab.
+- **Templates:** per-feature default template with a live preview against a mock event; per-rule overrides listed under their feature. Status Watcher has two default templates, one per transition direction (`disconnected` / `reconnected`).
+- **Config changes apply live** via a `ConfigStore.Apply(newConfig)` method that diff-patches running features. Rule edits are hot-reloaded; region and capture-interval changes restart just that feature's workers (§2.7).
 
 **Region picker overlay**
 
-- Triggered from the Chat Watcher tab's "Pick region" button.
+- Triggered from either the Chat Watcher tab's or the Status Watcher tab's "Pick region" button. Same overlay, different target config field.
 - Implementation: borderless `Window` with `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to the full virtual screen (all monitors) via `SystemParameters.VirtualScreenWidth/Height/Left/Top`.
 - Rendered with ~40% opacity black fill. User drags a rubber-band rectangle; the dragged area is punched out to full transparency so the game is visible behind it. Escape cancels, Enter confirms, click-drag-release confirms.
-- Records the rectangle in **physical pixel coordinates** along with the monitor's DPI and effective resolution at time of pick. These are the drift-detection inputs the Chat Watcher compares against on each capture.
+- Records the rectangle in **physical pixel coordinates** along with the monitor's DPI and effective resolution at time of pick. These are the drift-detection inputs that both the Chat Watcher and the Status Watcher compare against on each capture.
 - **Anti-cheat audit for the picker:** the overlay is a normal WPF window. It does not find, enumerate, focus, or send messages to the MO2 window. The user must be in borderless/windowed mode to see the game behind the overlay; this is documented in the first-run experience rather than enforced by code.
 
-## 9. Lifecycle, watchdogs, error handling
+## 10. Lifecycle, watchdogs, error handling
 
 **Startup**
 
 1. Load config from `%APPDATA%\GuildRelay\config.json`. If missing, generate defaults and open the first-run config window before continuing.
 2. Initialize Core Host services: `SecretStore`, `EventBus`, `EventLog`, `AppLog` (Serilog → rolling file at `%APPDATA%\GuildRelay\logs\app-YYYYMMDD.log`), `DiscordPublisher`.
-3. Build Feature Registry, register `ChatWatcher` and `AudioWatcher` instances. For each feature whose config says `enabled: true`, call `StartAsync` and wire its `StatusChanged` event into the tray view model.
+3. Build Feature Registry, register `ChatWatcher`, `AudioWatcher`, and `StatusWatcher` instances. For each feature whose config says `enabled: true`, call `StartAsync` and wire its `StatusChanged` event into the tray view model.
 4. Show tray icon. Config window opens on first run only.
 
 **Per-feature watchdog**
@@ -294,7 +356,7 @@ Event Bus (Channel<DetectionEvent>, bounded, drop-newest on overflow)
 
 - `Application.DispatcherUnhandledException`, `AppDomain.CurrentDomain.UnhandledException`, and `TaskScheduler.UnobservedTaskException` are all wired to the same handler: log the exception to the app log, flip the tray icon to red with a tooltip pointing at the log file, and — if the exception came from a known feature's task — route it through that feature's watchdog.
 
-## 10. Config schema (JSON)
+## 11. Config schema (JSON)
 
 ```json
 {
@@ -342,6 +404,37 @@ Event Bus (Channel<DetectionEvent>, bounded, drop-newest on overflow)
         "default": "**{player}** heard [{rule_label}]",
         "perRule": { "horseWhinny": "**{player}** hears a horse nearby" }
       }
+    },
+    "status": {
+      "enabled": true,
+      "captureIntervalMs": 3000,
+      "ocrConfidenceThreshold": 0.65,
+      "debounceSamples": 3,
+      "region": {
+        "x": 960, "y": 400, "width": 720, "height": 280,
+        "capturedAtDpi": 120,
+        "capturedAtResolution": { "width": 2560, "height": 1440 },
+        "monitorDeviceId": "\\\\.\\DISPLAY1"
+      },
+      "preprocessPipeline": [
+        { "stage": "grayscale" },
+        { "stage": "contrastStretch", "low": 0.1, "high": 0.9 },
+        { "stage": "upscale", "factor": 2 },
+        { "stage": "adaptiveThreshold", "blockSize": 15 }
+      ],
+      "disconnectPatterns": [
+        { "id": "main_menu", "label": "Returned to main menu",
+          "pattern": "return to main menu",             "regex": false },
+        { "id": "lost_conn", "label": "Lost connection",
+          "pattern": "(disconnected|lost connection)",  "regex": true }
+      ],
+      "templates": {
+        "default": "**{player}** status: {rule_label}",
+        "perRule": {
+          "disconnected": ":warning: **{player}** lost connection to the server",
+          "reconnected":  ":white_check_mark: **{player}** is back online"
+        }
+      }
     }
   },
   "logs": {
@@ -354,11 +447,12 @@ Event Bus (Channel<DetectionEvent>, bounded, drop-newest on overflow)
 **Notes:**
 
 - `schemaVersion` exists from v1 so a v2 Horizon Watcher section can migrate cleanly.
-- `region` stores the DPI and resolution at pick time — the drift-detection inputs the Chat Watcher checks on each capture.
-- `preprocessPipeline` is an ordered list of named stages. Adding a stage is a config change, not a code change.
+- `region` stores the DPI and resolution at pick time — the drift-detection inputs the Chat Watcher and Status Watcher each check on their own captures. The two features have independent regions; they do not share a rectangle.
+- `preprocessPipeline` is an ordered list of named stages. Adding a stage is a config change, not a code change. Chat and Status each carry their own pipeline so they can be tuned independently for their respective regions.
+- Status Watcher uses the same `default` + `perRule` template shape as Audio Watcher. Its rule labels happen to be the transition names (`disconnected`, `reconnected`), so the `perRule` lookup naturally selects the right template per transition direction with a sensible fallback via `default`.
 - The webhook URL is stored in JSON (users need to paste it in), but the `SecretStore` wrapper is the only code path that ever returns it, and no log sink or template render path can observe it.
 
-## 11. Project / solution layout
+## 12. Project / solution layout
 
 ```
 GuildRelay.sln
@@ -381,6 +475,7 @@ GuildRelay.sln
 │   │
 │   ├── GuildRelay.Features.Chat/    // ChatWatcher : IFeature + preprocess pipeline
 │   ├── GuildRelay.Features.Audio/   // AudioWatcher : IFeature
+│   ├── GuildRelay.Features.Status/  // StatusWatcher : IFeature + debounced state machine
 │   │
 │   ├── GuildRelay.Publisher/        // DiscordPublisher : IDiscordPublisher, template engine
 │   ├── GuildRelay.Logging/          // Serilog setup, EventLog (JSONL) writer
@@ -396,12 +491,13 @@ GuildRelay.sln
     ├── GuildRelay.Publisher.Tests/   // template rendering, retry/backoff, redaction, image path
     ├── GuildRelay.Features.Chat.Tests/   // dedup, rule engine, preprocess stages (pure)
     ├── GuildRelay.Features.Audio.Tests/  // MFCC matcher vs recorded fixtures
+    ├── GuildRelay.Features.Status.Tests/ // debounce state machine, first-run silence, drift hold
     └── GuildRelay.Platform.Windows.Tests/ // manual/integration tier for capture + WASAPI
 ```
 
 **Dependency rule:** `Core` depends on nothing. Features and Platform depend on `Core`. `App` depends on everything. This is what lets the publisher, features, and core logic be unit-tested without any Windows API on the test runner.
 
-## 12. Anti-cheat compliance audit
+## 13. Anti-cheat compliance audit
 
 Every component that could theoretically interact with the MO2 process, audited against §3.6 of the requirements. This table is intended to be copied verbatim into the shipped README so EAC compatibility stays auditable over time (the §4.3 recommendation).
 
@@ -409,6 +505,7 @@ Every component that could theoretically interact with the MO2 process, audited 
 |---|---|---|---|
 | Chat Watcher capture | GDI BitBlt from desktop DC to a rectangle the user chose | None. Desktop DC, not MO2's HDC. No `FindWindow("MortalOnline")`, no HWND lookup. | ✅ |
 | Audio Watcher capture | WASAPI loopback of the default output device | None. System-level audio endpoint. Identical to any music-visualizer app. | ✅ |
+| Status Watcher capture + OCR | Same desktop BitBlt + OCR pipeline as Chat Watcher, applied to a different user-marked region; debounced state machine on top | None. Shares Chat Watcher's pipeline verbatim. Zero new Windows API surface. | ✅ |
 | Region picker overlay | Borderless TopMost WPF window over virtual screen | None. Does not enumerate, focus, or message MO2. | ✅ |
 | Discord publisher | HTTPS POST to `discord.com` | None. Outbound network only. | ✅ |
 | Event log / app log | Writes to `%APPDATA%\GuildRelay\` | None. Never reads or writes inside MO2's install directory. | ✅ |
@@ -419,14 +516,15 @@ Every component that could theoretically interact with the MO2 process, audited 
 
 **v2 Horizon Watcher pre-clearance:** uses the same `IScreenCapture` as Chat Watcher. No new API surface needed; no new compliance concerns.
 
-## 13. Testing strategy
+## 14. Testing strategy
 
 - **Core, Publisher, Features (pure):** unit tests on the test runner with no Windows API surface. Fakes for `IOcrEngine`, `IAudioMatcher`, `IScreenCapture`, and `IDiscordPublisher`. Covers dedup, rule matching, preprocess stages, template rendering, retry/backoff, secret redaction, and the multipart image path.
 - **Audio matcher:** fixture-driven tests that feed pre-recorded reference clips plus negative clips through the matcher and assert score thresholds. The matcher is deterministic given a fixed input, so these are real unit tests, not manual ones.
+- **Status Watcher state machine:** pure unit tests driven by a fake `IOcrEngine` that returns scripted observation sequences. Covers first-run silence (`Unknown → Connected`/`Disconnected` emits nothing), debounce depth (a transition only fires after N consecutive confirming observations), OCR-failure tolerance (dropped observations do not advance the buffer), and the drift-detection hold (state held across `Warning → Running`). No Windows APIs needed.
 - **Platform.Windows:** tagged integration tests that must run on a Windows host. Capture tests hit a known bitmap rendered into a hidden window; WASAPI tests use a synthetic audio source. Not run in CI unless a Windows runner is available.
 - **End-to-end smoke:** a manual checklist in the repo for "pick region → hit a test chat line → see Discord post" and "add a reference clip → play it → see Discord post". Short, recorded in the README alongside the anti-cheat audit.
 
-## 14. Out of scope for this architecture
+## 15. Out of scope for this architecture
 
 This document does not cover:
 
@@ -435,7 +533,7 @@ This document does not cover:
 - **Deduplication across multiple guildmates' instances.** Each instance is independent. If two players see the same event, they may both post; cross-user coordination is explicitly out of scope per §4.2.
 - **Installer packaging.** MSI vs. portable zip is a delivery concern, not an architectural one. Both are viable with `dotnet publish --self-contained`.
 
-## 15. Open items to resolve during implementation
+## 16. Open items to resolve during implementation
 
 These are small enough not to block design approval, but should be decided before or during implementation:
 
@@ -443,3 +541,4 @@ These are small enough not to block design approval, but should be decided befor
 - **Exact default preprocess pipeline parameters.** The pipeline shape is fixed; specific contrast-stretch low/high values and adaptive-threshold block size should be tuned against real captures before shipping.
 - **Default sensitivity for shipped reference clips.** No reference clips are shipped in v1 (users bring their own), but the quickstart docs should recommend a starting sensitivity based on characterization.
 - **Region-picker tray shortcut.** §4.3 suggests a tray-menu shortcut in addition to the config button. Not decided here — easy to add later without architectural impact.
+- **Default disconnect phrases shipped with the app.** The architecture commits to shipping sensible defaults (`"return to main menu"`, `"disconnected"`, `"lost connection"`), but the exact wording is a UX/localization call that should be confirmed against real MO2 dialog screenshots during the first implementation milestone.

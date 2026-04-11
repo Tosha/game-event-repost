@@ -17,7 +17,7 @@ Members of a single Mortal Online 2 guild. Each guildmate installs and runs thei
 
 ### 1.3 Version scope
 
-- **v1 (this document):** Chat keyword detection (via OCR on the in-game chat window) and audio reference-clip detection (via system audio loopback), posting to one Discord channel. Each detection source is an independently enable-able feature in the app's config, so a user can run with chat only, audio only, or both.
+- **v1 (this document):** Chat keyword detection (via OCR on the in-game chat window), audio reference-clip detection (via system audio loopback), and connection-status tracking (via OCR on the disconnect/login dialog region), posting to one Discord channel. Each detection source is an independently enable-able feature in the app's config, so a user can run with any subset of them enabled.
 - **v2 (sketched, not fully specified):** Horizon Watcher — change-detection on a user-marked screen region, for scout scenarios. See §4.1.
 - **Explicitly out of scope:** see §4.2.
 
@@ -31,7 +31,7 @@ The app must only use **external observation**: standard user-level Windows scre
 
 ### 2.1 Feature toggles and configuration model
 
-- The app ships with a set of **detection features**. In v1 these are **Chat Watcher** and **Audio Watcher**. v2 will add **Horizon Watcher**.
+- The app ships with a set of **detection features**. In v1 these are **Chat Watcher**, **Audio Watcher**, and **Status Watcher**. v2 will add **Horizon Watcher**.
 - Each feature is independently enabled or disabled via the config window. A disabled feature consumes no CPU, GPU, screen-capture, or audio-capture resources.
 - Each feature has its own configuration sub-section (rules, regions, reference clips, templates, etc.) and its own runtime status indicator in the tray UI — e.g., "Chat: on (3 rules)", "Audio: off".
 - A single top-level config covers shared settings: Discord webhook URL, local player/character name (used to tag posts), and a global on/off.
@@ -61,13 +61,26 @@ The app must only use **external observation**: standard user-level Windows scre
 - Webhook URL is stored only in the local config file. It is never transmitted anywhere except Discord and is treated as a secret (see §3.4).
 - Failed webhook calls are retried with exponential backoff for a short bounded period, then dropped and recorded in the local event log. Persistent webhook failures surface as a tray-icon warning state.
 
-### 2.5 Local event log
+### 2.5 Status Watcher
+
+- The Status Watcher tracks whether the player is currently **connected** to a Mortal Online 2 server, and notifies the guild Discord channel on transitions between **connected** and **disconnected**. It must detect server disconnects while MO2 is still running — i.e., the game process is alive and showing a "disconnected", "lost connection", or "return to main menu" screen.
+- Detection is via OCR on a **user-marked screen region** corresponding to the area where MO2 shows its disconnect/login dialogs. Region selection uses the same interactive region picker as the Chat Watcher, and coordinates are stored the same way (pixel coordinates tied to the current display resolution and DPI, with the same "re-pick region" recovery path on resolution changes).
+- The user defines a list of **disconnect phrases**, each consisting of a plain-text or regular-expression pattern plus a human-readable label. Sensible defaults (e.g., "disconnected", "lost connection", "return to main menu") are shipped so a first-time user gets working detection without configuring patterns.
+- The feature maintains an internal state machine with three states: **Unknown** (no successful OCR yet), **Connected** (OCR ran, no disconnect phrase matched), and **Disconnected** (OCR ran, a disconnect phrase matched).
+- **State transitions are debounced.** A transition requires N consecutive confirming captures before it fires, where N is configurable (default 3). This prevents a single noisy OCR frame from causing a spurious notification. OCR failures or captures below the confidence threshold leave the state unchanged — they are neither confirmations nor denials.
+- **First-run is silent.** Transitions out of `Unknown` (the startup state) never emit events, because the app cannot know what the player's state was before it launched. Notifications begin with the first real `Connected ↔ Disconnected` transition.
+- On a confirmed `Connected → Disconnected` transition, the Status Watcher emits a **Status Event** containing: the matching phrase's label, a timestamp, the local player name, and a transition tag (`"connected->disconnected"`).
+- On a confirmed `Disconnected → Connected` transition, the Status Watcher emits a Status Event with transition tag `"disconnected->connected"`.
+- Post templates are configurable per transition direction via the same template system as other features. Defaults are shipped for both directions so a first-time user gets readable notifications without editing anything.
+- Capture interval is configurable. Default is chosen higher than Chat Watcher (~3 seconds) because disconnect-notification latency is less critical than in-game call-out latency, and the feature should cost as little as possible when the player is connected and nothing is changing.
+
+### 2.6 Local event log
 
 - All detected events — whether successfully posted to Discord or not — are written to a **rolling local log file** (bounded by retention days and/or size).
 - Each log entry records: timestamp, feature (chat/audio), rule label, matched content (chat line or audio rule), and Discord post status (success, failed, retried, dropped).
 - The log is intended for after-session review and debugging. It lives under the app's per-user data directory; see §3.5.
 
-### 2.6 App lifecycle and tray UI
+### 2.7 App lifecycle and tray UI
 
 - The app is started **manually** by the user. There is no Windows autostart and no automatic launch when MO2 is detected in v1.
 - Once started, the app minimizes to the **Windows system tray**. The tray icon reflects overall status (OK / warning / error / paused).
@@ -123,7 +136,7 @@ The app must coexist safely with EasyAntiCheat by never interacting with the MO2
 
 ### 3.7 Observability
 
-- Beyond the per-event local log (§2.5), the app maintains a structured application log covering startup, shutdown, feature enable/disable, configuration reloads, errors, and webhook failures. This log is the primary source of useful bug reports.
+- Beyond the per-event local log (§2.6), the app maintains a structured application log covering startup, shutdown, feature enable/disable, configuration reloads, errors, and webhook failures. This log is the primary source of useful bug reports.
 - The tray menu provides a **View Logs folder** option that opens Explorer on the logs directory.
 
 ---
@@ -179,6 +192,7 @@ Sensitivity tuning, baseline-refresh strategy, per-region rules, and related det
 
 - **Chat Watcher** — v1 feature that captures a screen region, OCRs it, and fires events when recognized text matches a user-defined pattern.
 - **Audio Watcher** — v1 feature that captures system audio via WASAPI loopback and fires events when the incoming sound matches a user-provided reference clip.
+- **Status Watcher** — v1 feature that OCRs a user-marked region for known disconnect phrases and fires events on `connected ↔ disconnected` state transitions.
 - **Horizon Watcher** — v2 feature that watches a fixed screen region for visual change and posts a screenshot to Discord when movement is detected.
 - **Rule** — a single configurable detection trigger inside a feature (a regex/text pattern for Chat Watcher, a reference clip for Audio Watcher, a watched region for Horizon Watcher). Each rule has a user-facing label.
 - **Event** — the internal message a feature emits when a rule fires. Events carry enough metadata (feature, rule label, matched content, timestamp, player name) for the Discord publisher to render a post via a template.
