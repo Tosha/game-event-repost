@@ -124,13 +124,21 @@ dotnet new sln -n GuildRelay
 dotnet new classlib  -n GuildRelay.Core       -o src/GuildRelay.Core       -f net8.0
 dotnet new classlib  -n GuildRelay.Logging    -o src/GuildRelay.Logging    -f net8.0
 dotnet new classlib  -n GuildRelay.Publisher  -o src/GuildRelay.Publisher  -f net8.0
-dotnet new wpf       -n GuildRelay.App        -o src/GuildRelay.App        -f net8.0
+dotnet new wpf       -n GuildRelay.App        -o src/GuildRelay.App
 dotnet new xunit     -n GuildRelay.Core.Tests      -o tests/GuildRelay.Core.Tests      -f net8.0
 dotnet new xunit     -n GuildRelay.Logging.Tests   -o tests/GuildRelay.Logging.Tests   -f net8.0
 dotnet new xunit     -n GuildRelay.Publisher.Tests -o tests/GuildRelay.Publisher.Tests -f net8.0
 ```
 
+The `dotnet new wpf` template intentionally omits `-f net8.0`; WPF requires the `net8.0-windows` target framework, which is what the template defaults to. Passing `-f net8.0` would break WPF project generation.
+
 Delete the auto-generated `Class1.cs` / `UnitTest1.cs` files in each project.
+
+Also generate a `.gitignore` for the solution:
+
+```bash
+dotnet new gitignore
+```
 
 - [ ] **Step 2: Add projects to solution**
 
@@ -179,7 +187,7 @@ For each `.csproj` in `src/` and `tests/`, make sure the `<PropertyGroup>` conta
 <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 ```
 
-For `GuildRelay.App.csproj` additionally keep `<UseWPF>true</UseWPF>` (the `wpf` template already sets this).
+**Exception for `GuildRelay.App.csproj`:** keep the WPF template's `<TargetFramework>net8.0-windows</TargetFramework>` (WPF requires the Windows desktop target), keep `<OutputType>WinExe</OutputType>` and `<UseWPF>true</UseWPF>`, and only add `LangVersion` + `TreatWarningsAsErrors` to its existing PropertyGroup.
 
 - [ ] **Step 6: Build and verify**
 
