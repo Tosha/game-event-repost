@@ -25,5 +25,8 @@
         <TabItem Header="Audio Watcher">
             <local:AudioConfigTab x:Name="AudioTab"/>
         </TabItem>
+        <TabItem Header="Status Watcher">
+            <local:StatusConfigTab x:Name="StatusTab"/>
+        </TabItem>
     </TabControl>
 </Window>
