@@ -1,0 +1,22 @@
+<Window x:Class="GuildRelay.App.Config.ConfigWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="GuildRelay — Config" Width="520" Height="360"
+        WindowStartupLocation="CenterScreen">
+    <TabControl Margin="8">
+        <TabItem Header="General">
+            <StackPanel Margin="12">
+                <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
+                <PasswordBox x:Name="WebhookBox" Height="26" Margin="0,4,0,12"/>
+                <TextBlock Text="Player name" FontWeight="SemiBold"/>
+                <TextBox x:Name="PlayerBox" Height="26" Margin="0,4,0,12"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Test webhook" Click="OnTestWebhookClick" Padding="12,4" Margin="0,0,8,0"/>
+                    <Button Content="Save"         Click="OnSaveClick"        Padding="12,4" Margin="0,0,8,0"/>
+                    <Button Content="Close"        Click="OnCloseClick"       Padding="12,4"/>
+                </StackPanel>
+                <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="Gray"/>
+            </StackPanel>
+        </TabItem>
+    </TabControl>
+</Window>
