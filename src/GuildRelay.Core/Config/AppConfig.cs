@@ -5,6 +5,7 @@ public sealed record AppConfig(
     GeneralConfig General,
     ChatConfig Chat,
     AudioConfig Audio,
+    StatusConfig Status,
     LogsConfig Logs
 )
 {
@@ -13,5 +14,6 @@ public sealed record AppConfig(
         General: GeneralConfig.Default,
         Chat: ChatConfig.Default,
         Audio: AudioConfig.Default,
+        Status: StatusConfig.Default,
         Logs: LogsConfig.Default);
 }
