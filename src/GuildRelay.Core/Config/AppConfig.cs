@@ -4,6 +4,7 @@ public sealed record AppConfig(
     int SchemaVersion,
     GeneralConfig General,
     ChatConfig Chat,
+    AudioConfig Audio,
     LogsConfig Logs
 )
 {
@@ -11,5 +12,6 @@ public sealed record AppConfig(
         SchemaVersion: 1,
         General: GeneralConfig.Default,
         Chat: ChatConfig.Default,
+        Audio: AudioConfig.Default,
         Logs: LogsConfig.Default);
 }
