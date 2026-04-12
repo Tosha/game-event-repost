@@ -16,6 +16,7 @@ public partial class ConfigWindow : Window
         WebhookBox.Password = vm.WebhookUrl;
         PlayerBox.Text = vm.PlayerName;
         ChatTab.DataContext = vm;
+        AudioTab.DataContext = vm;
     }
 
     private async void OnTestWebhookClick(object sender, RoutedEventArgs e)

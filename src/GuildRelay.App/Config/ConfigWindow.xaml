@@ -22,5 +22,8 @@
         <TabItem Header="Chat Watcher">
             <local:ChatConfigTab x:Name="ChatTab"/>
         </TabItem>
+        <TabItem Header="Audio Watcher">
+            <local:AudioConfigTab x:Name="AudioTab"/>
+        </TabItem>
     </TabControl>
 </Window>
