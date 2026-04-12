@@ -17,6 +17,7 @@ public partial class ConfigWindow : Window
         PlayerBox.Text = vm.PlayerName;
         ChatTab.DataContext = vm;
         AudioTab.DataContext = vm;
+        StatusTab.DataContext = vm;
     }
 
     private async void OnTestWebhookClick(object sender, RoutedEventArgs e)

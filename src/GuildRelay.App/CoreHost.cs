@@ -69,7 +69,9 @@ public sealed class CoreHost : IAsyncDisposable
             ["chat"] = config.Chat.Templates.GetValueOrDefault("default",
                 "**{player}** saw chat match [{rule_label}]: `{matched_text}`"),
             ["audio"] = config.Audio.Templates.GetValueOrDefault("default",
-                "**{player}** heard [{rule_label}]")
+                "**{player}** heard [{rule_label}]"),
+            ["status"] = config.Status.Templates.GetValueOrDefault("default",
+                "**{player}** status: {rule_label}")
         };
         var publisher = new DiscordPublisher(
             new HttpClient(),
@@ -101,6 +103,19 @@ public sealed class CoreHost : IAsyncDisposable
 
         if (config.Audio.Enabled && config.Audio.Rules.Count > 0)
             await audioWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+
+        // Register Status Watcher (reuses BitBlt + OCR from Chat Watcher infra)
+        var statusCapture = new Platform.Windows.Capture.BitBltCapture();
+        var statusOcr = new Platform.Windows.Ocr.WindowsMediaOcrEngine();
+        var statusStages = Platform.Windows.Preprocessing.StageFactory.CreatePipeline(
+            config.Status.PreprocessPipeline);
+        var statusPipeline = new Features.Chat.Preprocessing.PreprocessPipeline(statusStages);
+        var statusWatcher = new Features.Status.StatusWatcher(
+            statusCapture, statusOcr, statusPipeline, bus, config.Status, config.General.PlayerName);
+        registry.Register(statusWatcher);
+
+        if (config.Status.Enabled && !config.Status.Region.IsEmpty)
+            await statusWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
 
         logger.Information("CoreHost initialized at {Path}", appData);
         return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry);
