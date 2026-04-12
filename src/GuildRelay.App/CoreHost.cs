@@ -67,7 +67,9 @@ public sealed class CoreHost : IAsyncDisposable
         {
             ["test"] = "{matched_text}",
             ["chat"] = config.Chat.Templates.GetValueOrDefault("default",
-                "**{player}** saw chat match [{rule_label}]: `{matched_text}`")
+                "**{player}** saw chat match [{rule_label}]: `{matched_text}`"),
+            ["audio"] = config.Audio.Templates.GetValueOrDefault("default",
+                "**{player}** heard [{rule_label}]")
         };
         var publisher = new DiscordPublisher(
             new HttpClient(),
@@ -89,6 +91,16 @@ public sealed class CoreHost : IAsyncDisposable
 
         if (config.Chat.Enabled && !config.Chat.Region.IsEmpty)
             await chatWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
+
+        // Register Audio Watcher
+        var audioSource = new Platform.Windows.Audio.WasapiLoopbackSource();
+        var audioMatcher = new Platform.Windows.Audio.NWavesMfccMatcher();
+        var audioWatcher = new Features.Audio.AudioWatcher(
+            audioSource, audioMatcher, bus, config.Audio, config.General.PlayerName);
+        registry.Register(audioWatcher);
+
+        if (config.Audio.Enabled && config.Audio.Rules.Count > 0)
+            await audioWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
 
         logger.Information("CoreHost initialized at {Path}", appData);
         return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry);
