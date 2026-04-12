@@ -63,16 +63,32 @@ public sealed class CoreHost : IAsyncDisposable
         var eventLog = new EventLog(Path.Combine(appData, "logs"));
         var bus = new EventBus(capacity: 256);
 
+        var templates = new System.Collections.Generic.Dictionary<string, string>
+        {
+            ["test"] = "{matched_text}",
+            ["chat"] = config.Chat.Templates.GetValueOrDefault("default",
+                "**{player}** saw chat match [{rule_label}]: `{matched_text}`")
+        };
         var publisher = new DiscordPublisher(
             new HttpClient(),
             secrets,
             new TemplateEngine(),
-            templateByFeatureId: new System.Collections.Generic.Dictionary<string, string>
-            {
-                ["test"] = "{matched_text}"
-            });
+            templateByFeatureId: templates);
 
         var registry = new FeatureRegistry();
+
+        // Register Chat Watcher
+        var chatCapture = new Platform.Windows.Capture.BitBltCapture();
+        var chatOcr = new Platform.Windows.Ocr.WindowsMediaOcrEngine();
+        var chatStages = Platform.Windows.Preprocessing.StageFactory.CreatePipeline(
+            config.Chat.PreprocessPipeline);
+        var chatPipeline = new Features.Chat.Preprocessing.PreprocessPipeline(chatStages);
+        var chatWatcher = new Features.Chat.ChatWatcher(
+            chatCapture, chatOcr, chatPipeline, bus, config.Chat, config.General.PlayerName);
+        registry.Register(chatWatcher);
+
+        if (config.Chat.Enabled && !config.Chat.Region.IsEmpty)
+            await chatWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
 
         logger.Information("CoreHost initialized at {Path}", appData);
         return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry);

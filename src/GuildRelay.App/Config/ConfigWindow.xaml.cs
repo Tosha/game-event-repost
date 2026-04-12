@@ -15,6 +15,7 @@ public partial class ConfigWindow : Window
         if (DataContext is not ConfigViewModel vm) return;
         WebhookBox.Password = vm.WebhookUrl;
         PlayerBox.Text = vm.PlayerName;
+        ChatTab.DataContext = vm;
     }
 
     private async void OnTestWebhookClick(object sender, RoutedEventArgs e)
