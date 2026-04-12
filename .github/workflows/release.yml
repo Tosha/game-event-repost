@@ -20,11 +20,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore
-        run: dotnet restore
+      - name: Restore (with runtime)
+        run: dotnet restore -r win-x64
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore -r win-x64
 
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal
@@ -36,7 +36,7 @@ jobs:
           -r win-x64
           --self-contained true
           /p:PublishSingleFile=true
-          --no-build
+          --no-restore
 
       - name: Zip release
         shell: pwsh
