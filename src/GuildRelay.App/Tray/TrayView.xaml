@@ -1,0 +1,18 @@
+<Window x:Class="GuildRelay.App.Tray.TrayView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        ShowInTaskbar="False" Visibility="Hidden" WindowStyle="None"
+        Width="0" Height="0">
+    <tb:TaskbarIcon IconSource="pack://application:,,,/Assets/tray.ico"
+                    ToolTipText="GuildRelay">
+        <tb:TaskbarIcon.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Open Config"      Click="OnOpenConfig"/>
+                <MenuItem Header="View Logs folder" Click="OnOpenLogs"/>
+                <Separator/>
+                <MenuItem Header="Quit"             Click="OnQuit"/>
+            </ContextMenu>
+        </tb:TaskbarIcon.ContextMenu>
+    </tb:TaskbarIcon>
+</Window>
