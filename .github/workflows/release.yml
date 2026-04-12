@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Publish
+        run: >
+          dotnet publish src/GuildRelay.App
+          -c Release
+          -r win-x64
+          --self-contained true
+          /p:PublishSingleFile=true
+          --no-build
+
+      - name: Zip release
+        shell: pwsh
+        run: |
+          $publishDir = "src/GuildRelay.App/bin/Release/net8.0-windows10.0.22621.0/win-x64/publish"
+          Compress-Archive -Path "$publishDir/*" -DestinationPath "GuildRelay-win-x64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: GuildRelay-win-x64.zip
+          generate_release_notes: true
