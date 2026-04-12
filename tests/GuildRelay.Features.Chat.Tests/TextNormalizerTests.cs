@@ -19,9 +19,17 @@ public class TextNormalizerTests
     }
 
     [Fact]
-    public void StripsCommonOcrNoiseCharacters()
+    public void StripsPipesAndCurlyBraces()
     {
-        TextNormalizer.Normalize("he|lo [world]").Should().Be("helo world");
+        TextNormalizer.Normalize("he|lo {world}").Should().Be("helo world");
+    }
+
+    [Fact]
+    public void PreservesSquareBrackets()
+    {
+        // Square brackets are meaningful in MO2 chat: [Game], [Nave], [20:27:33]
+        TextNormalizer.Normalize("[Game] Dire Wolf").Should().Be("[game] dire wolf");
+        TextNormalizer.Normalize("[20:27:33][Game] task").Should().Be("[20:27:33][game] task");
     }
 
     [Fact]

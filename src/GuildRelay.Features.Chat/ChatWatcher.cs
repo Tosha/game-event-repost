@@ -116,33 +116,56 @@ public sealed class ChatWatcher : IFeature
 
         var rules = _compiledRules; // snapshot
 
+        // Build a list of normalized lines, then try matching each line
+        // individually AND concatenated with the next line. OCR frequently
+        // splits a single chat message across two lines (e.g., "[Game] You
+        // received a task to kill Dire" + "Wolf (8)"), so a pattern like
+        // "game.*dire wolf" only matches if we join adjacent lines.
+        var normalizedLines = new List<(string normalized, string original)>();
         foreach (var line in ocrResult.Lines)
         {
             if (line.Confidence < _config.OcrConfidenceThreshold)
                 continue;
-
             var normalized = TextNormalizer.Normalize(line.Text);
-            if (string.IsNullOrEmpty(normalized))
-                continue;
+            if (!string.IsNullOrEmpty(normalized))
+                normalizedLines.Add((normalized, line.Text));
+        }
 
-            if (_dedup.IsDuplicate(normalized))
-                continue;
+        for (int i = 0; i < normalizedLines.Count; i++)
+        {
+            var (normalized, original) = normalizedLines[i];
 
-            foreach (var rule in rules)
+            // Also build a joined version with the next line for split-message matching
+            var joinedNormalized = normalized;
+            var joinedOriginal = original;
+            if (i + 1 < normalizedLines.Count)
             {
-                if (rule.Pattern.IsMatch(normalized))
-                {
-                    var evt = new DetectionEvent(
-                        FeatureId: "chat",
-                        RuleLabel: rule.Label,
-                        MatchedContent: line.Text,
-                        TimestampUtc: DateTimeOffset.UtcNow,
-                        PlayerName: _playerName,
-                        Extras: new Dictionary<string, string>(),
-                        ImageAttachment: null);
+                joinedNormalized = normalized + " " + normalizedLines[i + 1].normalized;
+                joinedOriginal = original + " " + normalizedLines[i + 1].original;
+            }
 
-                    await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
-                    break; // first matching rule wins per line
+            // Try single line first, then joined
+            foreach (var candidate in new[] { (joinedNormalized, joinedOriginal), (normalized, original) })
+            {
+                if (_dedup.IsDuplicate(candidate.Item1))
+                    continue;
+
+                foreach (var rule in rules)
+                {
+                    if (rule.Pattern.IsMatch(candidate.Item1))
+                    {
+                        var evt = new DetectionEvent(
+                            FeatureId: "chat",
+                            RuleLabel: rule.Label,
+                            MatchedContent: candidate.Item2,
+                            TimestampUtc: DateTimeOffset.UtcNow,
+                            PlayerName: _playerName,
+                            Extras: new Dictionary<string, string>(),
+                            ImageAttachment: null);
+
+                        await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
+                        break; // first matching rule wins
+                    }
                 }
             }
         }
