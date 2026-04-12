@@ -117,6 +117,30 @@ public sealed class CoreHost : IAsyncDisposable
         if (config.Status.Enabled && !config.Status.Region.IsEmpty)
             await statusWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
 
+        // Start the publisher consumer loop — drains the EventBus and posts to Discord.
+        // This is a fire-and-forget background task that runs for the lifetime of the app.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var evt in bus.ConsumeAllAsync(System.Threading.CancellationToken.None))
+                {
+                    try
+                    {
+                        await eventLog.AppendAsync(evt, Logging.EventPostStatus.Pending);
+                        await publisher.PublishAsync(evt, System.Threading.CancellationToken.None);
+                        await eventLog.UpdateStatusAsync(evt, Logging.EventPostStatus.Success);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Failed to publish event {FeatureId}/{RuleLabel}", evt.FeatureId, evt.RuleLabel);
+                        await eventLog.UpdateStatusAsync(evt, Logging.EventPostStatus.Failed);
+                    }
+                }
+            }
+            catch (OperationCanceledException) { /* shutdown */ }
+        });
+
         logger.Information("CoreHost initialized at {Path}", appData);
         return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry);
     }

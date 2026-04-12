@@ -89,6 +89,11 @@ public sealed class ChatWatcher : IFeature
             {
                 return;
             }
+            catch (Exception)
+            {
+                // Log and continue — don't let a single tick failure kill the loop.
+                // The watchdog will handle repeated failures at a higher level.
+            }
         }
     }
 
