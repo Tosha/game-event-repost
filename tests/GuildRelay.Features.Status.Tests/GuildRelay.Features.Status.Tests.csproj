@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GuildRelay.Features.Status\GuildRelay.Features.Status.csproj" />
     <ProjectReference Include="..\..\src\GuildRelay.Core\GuildRelay.Core.csproj" />
+    <ProjectReference Include="..\..\src\GuildRelay.Features.Chat\GuildRelay.Features.Chat.csproj" />
   </ItemGroup>
 
 </Project>
