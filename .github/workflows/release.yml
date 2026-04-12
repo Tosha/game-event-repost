@@ -40,10 +40,26 @@ jobs:
           --self-contained true
           /p:PublishSingleFile=true
 
+      - name: Sign executable
+        if: env.SIGNING_CERT_PFX != ''
+        shell: pwsh
+        env:
+          SIGNING_CERT_PFX: ${{ secrets.SIGNING_CERT_PFX }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          $publishDir = "src/GuildRelay.App/bin/Release/net8.0-windows10.0.22621.0/win-x64/publish"
+          $pfxBytes = [Convert]::FromBase64String($env:SIGNING_CERT_PFX)
+          $pfxPath = "$env:RUNNER_TEMP\codesign.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
+          & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f $pfxPath /p $env:SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 "$publishDir\GuildRelay.App.exe"
+          Remove-Item $pfxPath -Force
+
       - name: Zip release
         shell: pwsh
         run: |
           $publishDir = "src/GuildRelay.App/bin/Release/net8.0-windows10.0.22621.0/win-x64/publish"
+          # Include the public certificate so users can install trust
+          Copy-Item "certs/GuildRelay-CodeSigning.cer" "$publishDir/"
           Compress-Archive -Path "$publishDir/*" -DestinationPath "GuildRelay-win-x64.zip"
 
       - name: Create GitHub Release

@@ -9,6 +9,10 @@
 # Claude Code local session state
 .claude/
 
+# Code-signing secrets (the .cer public cert IS committed; .pfx and base64 are NOT)
+certs/*.pfx
+certs/pfx-base64.txt
+
 # User-specific files
 *.rsuser
 *.suo

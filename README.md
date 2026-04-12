@@ -40,8 +40,12 @@ GuildRelay captures what your monitor shows and what your speakers play. It is e
 
 ## Quick start
 
-1. Download the latest release (single `.exe`, no installer required).
-2. Run `GuildRelay.exe`. A green icon appears in your system tray.
+1. Download `GuildRelay-win-x64.zip` from the [latest release](https://github.com/Tosha/game-event-repost/releases) and extract it.
+2. **First time only -- install the signing certificate** to remove the Windows SmartScreen warning:
+   - Double-click `GuildRelay-CodeSigning.cer` (included in the zip).
+   - Click **Install Certificate** > **Current User** > **Place all certificates in the following store** > **Browse** > select **Trusted Publishers** > **OK** > **Finish**.
+   - You only need to do this once. After that, Windows will trust `GuildRelay.App.exe` without showing a warning.
+3. Run `GuildRelay.App.exe`. A green icon appears in your system tray.
 3. The config window opens automatically on first run. Paste your guild's Discord webhook URL and enter your player name.
 4. Click **Test webhook** to verify the connection -- you should see a message appear in your Discord channel.
 5. Switch to the **Chat Watcher** tab, click **Pick region**, and drag a rectangle over your in-game chat window.
