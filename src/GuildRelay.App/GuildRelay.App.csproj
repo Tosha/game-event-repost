@@ -7,6 +7,7 @@
     <ProjectReference Include="..\GuildRelay.Platform.Windows\GuildRelay.Platform.Windows.csproj" />
     <ProjectReference Include="..\GuildRelay.Features.Chat\GuildRelay.Features.Chat.csproj" />
     <ProjectReference Include="..\GuildRelay.Features.Audio\GuildRelay.Features.Audio.csproj" />
+    <ProjectReference Include="..\GuildRelay.Features.Status\GuildRelay.Features.Status.csproj" />
   </ItemGroup>
 
   <ItemGroup>
