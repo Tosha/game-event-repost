@@ -9,7 +9,10 @@ namespace GuildRelay.Features.Chat;
 public static class TextNormalizer
 {
     private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
-    private static readonly Regex NoiseChars = new(@"[\|\[\]\{\}]", RegexOptions.Compiled);
+    // Only strip pipe and curly braces. Square brackets [ ] are meaningful
+    // in MO2 chat (channel tags like [Nave], system tags like [Game],
+    // timestamps like [20:27:33]) and must NOT be stripped.
+    private static readonly Regex NoiseChars = new(@"[\|\{\}]", RegexOptions.Compiled);
 
     public static string Normalize(string input)
     {
