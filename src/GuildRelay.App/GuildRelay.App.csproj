@@ -27,6 +27,7 @@
     <UseWPF>true</UseWPF>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ApplicationIcon>Assets\tray.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>
