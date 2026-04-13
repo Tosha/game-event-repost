@@ -24,6 +24,13 @@
                  FontFamily="Consolas"/>
         <Button Content="Save Chat Settings" Click="OnSave" Padding="12,4"
                 HorizontalAlignment="Left"/>
+        <TextBlock Text="Test a message against your rules" FontWeight="SemiBold" Margin="0,12,0,0"/>
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+            <TextBox x:Name="TestMessageBox" Width="350" Height="26" Margin="0,0,8,0"
+                     FontFamily="Consolas"/>
+            <Button Content="Test" Click="OnTestMessage" Padding="12,4"/>
+        </StackPanel>
+        <TextBlock x:Name="TestResultText" Margin="0,4,0,0" Foreground="Gray" TextWrapping="Wrap"/>
         <TextBlock x:Name="StatusText" Margin="0,8,0,0" Foreground="Gray"/>
     </StackPanel>
 </UserControl>

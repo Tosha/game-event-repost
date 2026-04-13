@@ -4,8 +4,11 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using GuildRelay.App.RegionPicker;
 using GuildRelay.Core.Config;
+using GuildRelay.Core.Rules;
+using GuildRelay.Features.Chat;
 
 namespace GuildRelay.App.Config;
 
@@ -116,6 +119,41 @@ public partial class ChatConfigTab : UserControl
         {
             StatusText.Text = $"Error: {ex.Message}";
         }
+    }
+
+    private void OnTestMessage(object sender, RoutedEventArgs e)
+    {
+        var message = TestMessageBox.Text;
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            TestResultText.Text = "Enter a message to test.";
+            TestResultText.Foreground = Brushes.Gray;
+            return;
+        }
+
+        var rules = ParseRules(RulesBox.Text);
+        if (rules.Count == 0)
+        {
+            TestResultText.Text = "No rules defined. Add rules above first.";
+            TestResultText.Foreground = Brushes.Gray;
+            return;
+        }
+
+        var normalized = TextNormalizer.Normalize(message);
+
+        foreach (var rule in rules)
+        {
+            var pattern = CompiledPattern.Create(rule.Pattern, rule.Regex);
+            if (pattern.IsMatch(normalized))
+            {
+                TestResultText.Text = $"MATCH: rule \"{rule.Label}\" matched.  Normalized: \"{normalized}\"";
+                TestResultText.Foreground = Brushes.LimeGreen;
+                return;
+            }
+        }
+
+        TestResultText.Text = $"No match.  Normalized: \"{normalized}\"";
+        TestResultText.Foreground = Brushes.OrangeRed;
     }
 
     private static List<ChatRuleConfig> ParseRules(string text)
