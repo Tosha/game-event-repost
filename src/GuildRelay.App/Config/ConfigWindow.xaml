@@ -14,7 +14,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="GuildRelay — Config"/>
 
-        <TabControl Grid.Row="1" Margin="12,4,12,12">
+        <TabControl Grid.Row="1" Margin="12,4,12,12" x:Name="MainTabs">
             <TabItem Header="General">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
@@ -31,13 +31,31 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="Chat Watcher">
+            <TabItem x:Name="ChatTabItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ChatDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="Chat Watcher"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <local:ChatConfigTab x:Name="ChatTab"/>
             </TabItem>
-            <TabItem Header="Audio Watcher">
+            <TabItem x:Name="AudioTabItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="AudioDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="Audio Watcher"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <local:AudioConfigTab x:Name="AudioTab"/>
             </TabItem>
-            <TabItem Header="Status Watcher">
+            <TabItem x:Name="StatusTabItem">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="StatusDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="Status Watcher"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <local:StatusConfigTab x:Name="StatusTab"/>
             </TabItem>
         </TabControl>

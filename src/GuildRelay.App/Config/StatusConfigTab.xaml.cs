@@ -13,6 +13,7 @@ public partial class StatusConfigTab : UserControl
 {
     private CoreHost? _host;
     private RegionConfig _currentRegion = RegionConfig.Empty;
+    private bool _loading;
 
     public StatusConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
@@ -22,7 +23,9 @@ public partial class StatusConfigTab : UserControl
         if (_host is null) return;
 
         var status = _host.Config.Status;
-        EnabledCheck.IsChecked = status.Enabled;
+        _loading = true;
+        EnabledToggle.IsChecked = status.Enabled;
+        _loading = false;
         IntervalBox.Text = status.CaptureIntervalMs.ToString();
         DebounceBox.Text = status.DebounceSamples.ToString();
         _currentRegion = status.Region;
@@ -31,6 +34,26 @@ public partial class StatusConfigTab : UserControl
         var lines = status.DisconnectPatterns.Select(p =>
             $"{p.Label}|{p.Pattern}|{(p.Regex ? "regex" : "literal")}");
         PatternsBox.Text = string.Join(Environment.NewLine, lines);
+    }
+
+    private async void OnToggleChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _host is null) return;
+        var enabled = EnabledToggle.IsChecked ?? false;
+        var newStatus = _host.Config.Status with { Enabled = enabled };
+        var newConfig = _host.Config with { Status = newStatus };
+        _host.UpdateConfig(newConfig);
+        await _host.ConfigStore.SaveAsync(newConfig);
+
+        await _host.Registry.StopAsync("status");
+        if (enabled && !_host.Config.Status.Region.IsEmpty)
+            await _host.Registry.StartAsync("status", CancellationToken.None);
+
+        var window = Window.GetWindow(this) as ConfigWindow;
+        if (window is not null && DataContext is ConfigViewModel vm)
+            window.UpdateIndicators(vm);
+
+        StatusText.Text = enabled ? "Status Watcher enabled." : "Status Watcher disabled.";
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
@@ -63,7 +86,7 @@ public partial class StatusConfigTab : UserControl
             var patterns = ParsePatterns(PatternsBox.Text);
             var newStatus = _host.Config.Status with
             {
-                Enabled = EnabledCheck.IsChecked ?? false,
+                Enabled = EnabledToggle.IsChecked ?? false,
                 CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 3000,
                 DebounceSamples = int.TryParse(DebounceBox.Text, out var db) ? db : 3,
                 Region = _currentRegion,

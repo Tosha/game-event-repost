@@ -12,6 +12,7 @@ namespace GuildRelay.App.Config;
 public partial class AudioConfigTab : UserControl
 {
     private CoreHost? _host;
+    private bool _loading;
 
     public AudioConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
@@ -21,11 +22,33 @@ public partial class AudioConfigTab : UserControl
         if (_host is null) return;
 
         var audio = _host.Config.Audio;
-        EnabledCheck.IsChecked = audio.Enabled;
+        _loading = true;
+        EnabledToggle.IsChecked = audio.Enabled;
+        _loading = false;
 
         var ruleLines = audio.Rules.Select(r =>
             $"{r.Label}|{r.ClipPath}|{r.Sensitivity:F2}|{r.CooldownSec}");
         RulesBox.Text = string.Join(Environment.NewLine, ruleLines);
+    }
+
+    private async void OnToggleChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _host is null) return;
+        var enabled = EnabledToggle.IsChecked ?? false;
+        var newAudio = _host.Config.Audio with { Enabled = enabled };
+        var newConfig = _host.Config with { Audio = newAudio };
+        _host.UpdateConfig(newConfig);
+        await _host.ConfigStore.SaveAsync(newConfig);
+
+        await _host.Registry.StopAsync("audio");
+        if (enabled && _host.Config.Audio.Rules.Count > 0)
+            await _host.Registry.StartAsync("audio", CancellationToken.None);
+
+        var window = Window.GetWindow(this) as ConfigWindow;
+        if (window is not null && DataContext is ConfigViewModel vm)
+            window.UpdateIndicators(vm);
+
+        StatusText.Text = enabled ? "Audio Watcher enabled." : "Audio Watcher disabled.";
     }
 
     private async void OnSave(object sender, RoutedEventArgs e)
@@ -36,7 +59,7 @@ public partial class AudioConfigTab : UserControl
             var rules = ParseRules(RulesBox.Text);
             var newAudio = _host.Config.Audio with
             {
-                Enabled = EnabledCheck.IsChecked ?? false,
+                Enabled = EnabledToggle.IsChecked ?? false,
                 Rules = rules
             };
             var newConfig = _host.Config with { Audio = newAudio };
@@ -60,7 +83,6 @@ public partial class AudioConfigTab : UserControl
         var rules = new List<AudioRuleConfig>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            // Split into at most 4 parts so | inside patterns is preserved
             var parts = line.Trim().Split('|', 4);
             if (parts.Length < 4) continue;
             var label = parts[0].Trim();
