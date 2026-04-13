@@ -23,6 +23,7 @@ public sealed class ChatWatcher : IFeature
     private readonly EventBus _bus;
     private readonly string _playerName;
     private readonly ChatDedup _dedup = new(capacity: 256);
+    private readonly CooldownTracker _cooldown = new();
     private ChatConfig _config;
     private List<CompiledRule> _compiledRules;
     private CancellationTokenSource? _cts;
@@ -56,6 +57,7 @@ public sealed class ChatWatcher : IFeature
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _dedup.Clear();
+        _cooldown.Reset();
         Status = FeatureStatus.Running;
         _ = Task.Run(() => CaptureLoopAsync(_cts.Token));
         return Task.CompletedTask;
@@ -144,7 +146,7 @@ public sealed class ChatWatcher : IFeature
                 joinedOriginal = original + " " + normalizedLines[i + 1].original;
             }
 
-            // Try single line first, then joined
+            // Try joined first (catches split messages), then single line
             foreach (var candidate in new[] { (joinedNormalized, joinedOriginal), (normalized, original) })
             {
                 if (_dedup.IsDuplicate(candidate.Item1))
@@ -152,27 +154,31 @@ public sealed class ChatWatcher : IFeature
 
                 foreach (var rule in rules)
                 {
-                    if (rule.Pattern.IsMatch(candidate.Item1))
-                    {
-                        var evt = new DetectionEvent(
-                            FeatureId: "chat",
-                            RuleLabel: rule.Label,
-                            MatchedContent: candidate.Item2,
-                            TimestampUtc: DateTimeOffset.UtcNow,
-                            PlayerName: _playerName,
-                            Extras: new Dictionary<string, string>(),
-                            ImageAttachment: null);
+                    if (!rule.Pattern.IsMatch(candidate.Item1))
+                        continue;
 
-                        await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
-                        break; // first matching rule wins
-                    }
+                    // Per-rule cooldown: skip if this rule fired too recently
+                    if (!_cooldown.TryFire(rule.Id, TimeSpan.FromSeconds(rule.CooldownSec)))
+                        continue;
+
+                    var evt = new DetectionEvent(
+                        FeatureId: "chat",
+                        RuleLabel: rule.Label,
+                        MatchedContent: candidate.Item2,
+                        TimestampUtc: DateTimeOffset.UtcNow,
+                        PlayerName: _playerName,
+                        Extras: new Dictionary<string, string>(),
+                        ImageAttachment: null);
+
+                    await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
+                    break; // first matching rule wins
                 }
             }
         }
     }
 
     private static List<CompiledRule> CompileRules(List<ChatRuleConfig> rules)
-        => rules.Select(r => new CompiledRule(r.Label, CompiledPattern.Create(r.Pattern, r.Regex))).ToList();
+        => rules.Select(r => new CompiledRule(r.Id, r.Label, r.CooldownSec, CompiledPattern.Create(r.Pattern, r.Regex))).ToList();
 
-    private sealed record CompiledRule(string Label, CompiledPattern Pattern);
+    private sealed record CompiledRule(string Id, string Label, int CooldownSec, CompiledPattern Pattern);
 }

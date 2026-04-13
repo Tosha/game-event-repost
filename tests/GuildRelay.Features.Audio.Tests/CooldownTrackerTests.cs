@@ -1,6 +1,6 @@
 using System;
 using FluentAssertions;
-using GuildRelay.Features.Audio;
+using GuildRelay.Core.Features;
 using Xunit;
 
 namespace GuildRelay.Features.Audio.Tests;

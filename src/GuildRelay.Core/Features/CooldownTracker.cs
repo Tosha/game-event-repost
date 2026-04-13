@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 
-namespace GuildRelay.Features.Audio;
+namespace GuildRelay.Core.Features;
 
 /// <summary>
-/// Tracks per-rule cooldowns. A rule can only fire if its cooldown
+/// Tracks per-key cooldowns. A key can only fire if its cooldown
 /// has expired since the last fire. Thread-safe via lock.
+/// Used by both Chat Watcher (per-rule cooldown) and Audio Watcher.
 /// </summary>
 public sealed class CooldownTracker
 {
@@ -18,14 +19,14 @@ public sealed class CooldownTracker
         _now = timeProvider ?? (() => DateTimeOffset.UtcNow);
     }
 
-    public bool TryFire(string ruleId, TimeSpan cooldown)
+    public bool TryFire(string key, TimeSpan cooldown)
     {
         lock (_lock)
         {
             var now = _now();
-            if (_lastFired.TryGetValue(ruleId, out var last) && now - last < cooldown)
+            if (_lastFired.TryGetValue(key, out var last) && now - last < cooldown)
                 return false;
-            _lastFired[ruleId] = now;
+            _lastFired[key] = now;
             return true;
         }
     }
