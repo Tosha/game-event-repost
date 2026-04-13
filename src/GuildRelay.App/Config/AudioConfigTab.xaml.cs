@@ -60,7 +60,8 @@ public partial class AudioConfigTab : UserControl
         var rules = new List<AudioRuleConfig>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Trim().Split('|');
+            // Split into at most 4 parts so | inside patterns is preserved
+            var parts = line.Trim().Split('|', 4);
             if (parts.Length < 4) continue;
             var label = parts[0].Trim();
             var clipPath = parts[1].Trim();

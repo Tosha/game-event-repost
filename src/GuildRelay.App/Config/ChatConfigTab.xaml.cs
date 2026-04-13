@@ -31,6 +31,10 @@ public partial class ChatConfigTab : UserControl
         var ruleLines = chat.Rules.Select(r =>
             $"{r.Label}|{r.Pattern}|{(r.Regex ? "regex" : "literal")}");
         RulesBox.Text = string.Join(Environment.NewLine, ruleLines);
+
+        TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
+        if (RuleTemplates.BuiltInNames.Count > 0)
+            TemplateCombo.SelectedIndex = 0;
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
@@ -55,6 +59,33 @@ public partial class ChatConfigTab : UserControl
         RegionLabel.Text = _currentRegion.IsEmpty
             ? "No region selected"
             : $"{_currentRegion.X},{_currentRegion.Y} {_currentRegion.Width}x{_currentRegion.Height}";
+    }
+
+    private void OnLoadTemplate(object sender, RoutedEventArgs e)
+    {
+        if (TemplateCombo.SelectedItem is not string name) return;
+        if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
+
+        // Check for duplicates by Id
+        var existingRules = ParseRules(RulesBox.Text);
+        var newRules = templateRules.Where(r => !existingRules.Any(er => er.Id == r.Id)).ToList();
+
+        if (newRules.Count == 0)
+        {
+            StatusText.Text = $"Template \"{name}\" rules already present.";
+            return;
+        }
+
+        var lines = newRules.Select(r =>
+            $"{r.Label}|{r.Pattern}|{(r.Regex ? "regex" : "literal")}");
+        var block = string.Join(Environment.NewLine, lines);
+
+        var existing = RulesBox.Text.TrimEnd();
+        RulesBox.Text = string.IsNullOrEmpty(existing)
+            ? block
+            : existing + Environment.NewLine + block;
+
+        StatusText.Text = $"Loaded template: {name} ({newRules.Count} rules added)";
     }
 
     private async void OnSave(object sender, RoutedEventArgs e)
@@ -92,7 +123,8 @@ public partial class ChatConfigTab : UserControl
         var rules = new List<ChatRuleConfig>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            var parts = line.Trim().Split('|');
+            // Split into at most 3 parts so | inside regex patterns is preserved
+            var parts = line.Trim().Split('|', 3);
             if (parts.Length < 2) continue;
             var label = parts[0].Trim();
             var pattern = parts[1].Trim();
