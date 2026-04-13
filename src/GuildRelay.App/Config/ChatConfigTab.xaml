@@ -13,6 +13,11 @@
         <TextBox x:Name="IntervalBox" Width="100" HorizontalAlignment="Left" Margin="0,4,0,8"/>
         <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>
         <TextBox x:Name="ConfidenceBox" Width="100" HorizontalAlignment="Left" Margin="0,4,0,12"/>
+        <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+            <ComboBox x:Name="TemplateCombo" Width="200" Margin="0,0,8,0"/>
+            <Button Content="Load Template" Click="OnLoadTemplate" Padding="12,4"/>
+        </StackPanel>
         <TextBlock Text="Rules (one per line: label|pattern|regex)" FontWeight="SemiBold"/>
         <TextBox x:Name="RulesBox" AcceptsReturn="True" Height="100"
                  VerticalScrollBarVisibility="Auto" Margin="0,4,0,8"
