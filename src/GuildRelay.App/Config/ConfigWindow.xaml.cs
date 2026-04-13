@@ -6,7 +6,7 @@ using GuildRelay.Core.Events;
 
 namespace GuildRelay.App.Config;
 
-public partial class ConfigWindow : Window
+public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
 {
     public ConfigWindow() { InitializeComponent(); Loaded += OnLoaded; }
 

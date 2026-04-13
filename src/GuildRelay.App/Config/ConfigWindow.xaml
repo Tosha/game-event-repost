@@ -1,32 +1,45 @@
-<Window x:Class="GuildRelay.App.Config.ConfigWindow"
+<ui:FluentWindow x:Class="GuildRelay.App.Config.ConfigWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:GuildRelay.App.Config"
-        Title="GuildRelay — Config" Width="560" Height="480"
-        WindowStartupLocation="CenterScreen">
-    <TabControl Margin="8">
-        <TabItem Header="General">
-            <StackPanel Margin="12">
-                <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
-                <PasswordBox x:Name="WebhookBox" Height="26" Margin="0,4,0,12"/>
-                <TextBlock Text="Player name" FontWeight="SemiBold"/>
-                <TextBox x:Name="PlayerBox" Height="26" Margin="0,4,0,12"/>
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="Test webhook" Click="OnTestWebhookClick" Padding="12,4" Margin="0,0,8,0"/>
-                    <Button Content="Save"         Click="OnSaveClick"        Padding="12,4" Margin="0,0,8,0"/>
-                    <Button Content="Close"        Click="OnCloseClick"       Padding="12,4"/>
-                </StackPanel>
-                <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="Gray"/>
-            </StackPanel>
-        </TabItem>
-        <TabItem Header="Chat Watcher">
-            <local:ChatConfigTab x:Name="ChatTab"/>
-        </TabItem>
-        <TabItem Header="Audio Watcher">
-            <local:AudioConfigTab x:Name="AudioTab"/>
-        </TabItem>
-        <TabItem Header="Status Watcher">
-            <local:StatusConfigTab x:Name="StatusTab"/>
-        </TabItem>
-    </TabControl>
-</Window>
+        Title="GuildRelay — Config" Width="600" Height="560"
+        WindowStartupLocation="CenterScreen"
+        ExtendsContentIntoTitleBar="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="GuildRelay — Config"/>
+
+        <TabControl Grid.Row="1" Margin="12,4,12,12">
+            <TabItem Header="General">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
+                        <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12"/>
+                        <TextBlock Text="Player name" FontWeight="SemiBold"/>
+                        <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Button Content="Test webhook" Click="OnTestWebhookClick" Appearance="Primary" Margin="0,0,8,0"/>
+                            <ui:Button Content="Save"         Click="OnSaveClick"        Margin="0,0,8,0"/>
+                            <ui:Button Content="Close"        Click="OnCloseClick"/>
+                        </StackPanel>
+                        <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Chat Watcher">
+                <local:ChatConfigTab x:Name="ChatTab"/>
+            </TabItem>
+            <TabItem Header="Audio Watcher">
+                <local:AudioConfigTab x:Name="AudioTab"/>
+            </TabItem>
+            <TabItem Header="Status Watcher">
+                <local:StatusConfigTab x:Name="StatusTab"/>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</ui:FluentWindow>
