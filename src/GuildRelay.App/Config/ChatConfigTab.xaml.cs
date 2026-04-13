@@ -16,6 +16,7 @@ public partial class ChatConfigTab : UserControl
 {
     private CoreHost? _host;
     private RegionConfig _currentRegion = RegionConfig.Empty;
+    private bool _loading;
 
     public ChatConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
@@ -25,7 +26,9 @@ public partial class ChatConfigTab : UserControl
         if (_host is null) return;
 
         var chat = _host.Config.Chat;
-        EnabledCheck.IsChecked = chat.Enabled;
+        _loading = true;
+        EnabledToggle.IsChecked = chat.Enabled;
+        _loading = false;
         IntervalBox.Text = chat.CaptureIntervalMs.ToString();
         ConfidenceBox.Text = chat.OcrConfidenceThreshold.ToString("F2");
         CooldownBox.Text = chat.DefaultCooldownSec.ToString();
@@ -38,6 +41,27 @@ public partial class ChatConfigTab : UserControl
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
         if (RuleTemplates.BuiltInNames.Count > 0)
             TemplateCombo.SelectedIndex = 0;
+    }
+
+    private async void OnToggleChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _host is null) return;
+        var enabled = EnabledToggle.IsChecked ?? false;
+        var newChat = _host.Config.Chat with { Enabled = enabled };
+        var newConfig = _host.Config with { Chat = newChat };
+        _host.UpdateConfig(newConfig);
+        await _host.ConfigStore.SaveAsync(newConfig);
+
+        await _host.Registry.StopAsync("chat");
+        if (enabled && !_host.Config.Chat.Region.IsEmpty)
+            await _host.Registry.StartAsync("chat", CancellationToken.None);
+
+        // Update tab indicator dot
+        var window = Window.GetWindow(this) as ConfigWindow;
+        if (window is not null && DataContext is ConfigViewModel vm)
+            window.UpdateIndicators(vm);
+
+        StatusText.Text = enabled ? "Chat Watcher enabled." : "Chat Watcher disabled.";
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
@@ -98,7 +122,7 @@ public partial class ChatConfigTab : UserControl
             var rules = ParseRules(RulesBox.Text, defaultCooldown);
             var newChat = _host.Config.Chat with
             {
-                Enabled = EnabledCheck.IsChecked ?? false,
+                Enabled = EnabledToggle.IsChecked ?? false,
                 CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 1000,
                 OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
                 DefaultCooldownSec = defaultCooldown,

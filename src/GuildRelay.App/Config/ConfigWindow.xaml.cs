@@ -18,6 +18,16 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         ChatTab.DataContext = vm;
         AudioTab.DataContext = vm;
         StatusTab.DataContext = vm;
+
+        // Set initial indicator dots
+        UpdateIndicators(vm);
+    }
+
+    public void UpdateIndicators(ConfigViewModel vm)
+    {
+        ChatDot.Text = vm.Host.Config.Chat.Enabled ? "\u25CF" : "";
+        AudioDot.Text = vm.Host.Config.Audio.Enabled ? "\u25CF" : "";
+        StatusDot.Text = vm.Host.Config.Status.Enabled ? "\u25CF" : "";
     }
 
     private async void OnTestWebhookClick(object sender, RoutedEventArgs e)
