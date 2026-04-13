@@ -6,6 +6,7 @@ public sealed record ChatConfig(
     bool Enabled,
     int CaptureIntervalMs,
     double OcrConfidenceThreshold,
+    int DefaultCooldownSec,
     RegionConfig Region,
     List<PreprocessStageConfig> PreprocessPipeline,
     List<ChatRuleConfig> Rules,
@@ -15,6 +16,7 @@ public sealed record ChatConfig(
         Enabled: false,
         CaptureIntervalMs: 1000,
         OcrConfidenceThreshold: 0.65,
+        DefaultCooldownSec: 600,
         Region: RegionConfig.Empty,
         PreprocessPipeline: new List<PreprocessStageConfig>
         {

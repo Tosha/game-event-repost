@@ -5,4 +5,4 @@ public sealed record ChatRuleConfig(
     string Label,
     string Pattern,
     bool Regex,
-    int CooldownSec = 60);
+    int CooldownSec = 600);

@@ -73,7 +73,7 @@ public static class RuleTemplates
                     Label: "MO2 Game Events",
                     Pattern: BuildMo2LocationPattern(),
                     Regex: true,
-                    CooldownSec: 60)
+                    CooldownSec: 600)
             }
         };
 

@@ -18,7 +18,10 @@
             <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
 
             <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>
-            <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,12"/>
+            <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+
+            <TextBlock Text="Default rule cooldown (seconds)" FontWeight="SemiBold"/>
+            <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,12"/>
 
             <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
@@ -26,7 +29,7 @@
                 <ui:Button Content="Load Template" Click="OnLoadTemplate"/>
             </StackPanel>
 
-            <TextBlock Text="Rules (one per line: label|pattern|regex)" FontWeight="SemiBold"/>
+            <TextBlock Text="Rules (one per line: label|pattern|regex  or  label|pattern|regex|cooldown-sec)" FontWeight="SemiBold"/>
             <TextBox x:Name="RulesBox" AcceptsReturn="True" Height="100"
                      VerticalScrollBarVisibility="Auto" Margin="0,4,0,8"
                      FontFamily="Consolas" TextWrapping="Wrap"/>
