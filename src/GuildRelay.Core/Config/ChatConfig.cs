@@ -9,7 +9,7 @@ public sealed record ChatConfig(
     int DefaultCooldownSec,
     RegionConfig Region,
     List<PreprocessStageConfig> PreprocessPipeline,
-    List<ChatRuleConfig> Rules,
+    List<StructuredChatRule> Rules,
     Dictionary<string, string> Templates)
 {
     public static ChatConfig Default => new(
@@ -25,7 +25,7 @@ public sealed record ChatConfig(
             new("upscale", new Dictionary<string, double> { ["factor"] = 2 }),
             new("adaptiveThreshold", new Dictionary<string, double> { ["blockSize"] = 15 })
         },
-        Rules: new List<ChatRuleConfig>(RuleTemplates.BuiltIn["MO2 Game Events"]),
+        Rules: new List<StructuredChatRule>(RuleTemplates.BuiltIn["MO2 Game Events"]),
         Templates: new Dictionary<string, string>
         {
             ["default"] = "**{player}** saw chat match [{rule_label}]: `{matched_text}`"

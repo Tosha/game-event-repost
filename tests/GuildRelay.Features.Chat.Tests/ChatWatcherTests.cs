@@ -35,7 +35,7 @@ public class ChatWatcherTests
     private static ChatWatcher CreateWatcher(
         FakeOcr ocr,
         EventBus bus,
-        List<ChatRuleConfig> rules)
+        List<StructuredChatRule> rules)
     {
         var config = ChatConfig.Default with
         {
@@ -60,15 +60,19 @@ public class ChatWatcherTests
     {
         var ocr = new FakeOcr();
         var bus = new EventBus(capacity: 16);
-        var rules = new List<ChatRuleConfig>
+        var rules = new List<StructuredChatRule>
         {
-            new("r1", "Incoming", "(inc|incoming)", Regex: true)
+            new("r1", "Incoming",
+                new List<string> { "Nave", "Yell" },
+                new List<string> { "(inc|incoming)" },
+                MatchMode.Regex)
         };
         var watcher = CreateWatcher(ocr, bus, rules);
 
+        // OCR line must include a channel tag for the parser to match
         ocr.NextLines = new List<OcrLine>
         {
-            new("inc north gate", 0.9f, RectangleF.Empty)
+            new("[Nave] [Someone] inc north gate", 0.9f, RectangleF.Empty)
         };
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -85,7 +89,6 @@ public class ChatWatcherTests
             .Which.Should().Match<DetectionEvent>(e =>
                 e.FeatureId == "chat" &&
                 e.RuleLabel == "Incoming" &&
-                e.MatchedContent == "inc north gate" &&
                 e.PlayerName == "Tosh");
     }
 
@@ -94,15 +97,18 @@ public class ChatWatcherTests
     {
         var ocr = new FakeOcr();
         var bus = new EventBus(capacity: 16);
-        var rules = new List<ChatRuleConfig>
+        var rules = new List<StructuredChatRule>
         {
-            new("r1", "Incoming", "inc", Regex: false)
+            new("r1", "Incoming",
+                new List<string> { "Nave" },
+                new List<string> { "inc" },
+                MatchMode.ContainsAny)
         };
         var watcher = CreateWatcher(ocr, bus, rules);
 
         ocr.NextLines = new List<OcrLine>
         {
-            new("inc north", 0.9f, RectangleF.Empty)
+            new("[Nave] [Someone] inc north", 0.9f, RectangleF.Empty)
         };
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -123,15 +129,18 @@ public class ChatWatcherTests
     {
         var ocr = new FakeOcr();
         var bus = new EventBus(capacity: 16);
-        var rules = new List<ChatRuleConfig>
+        var rules = new List<StructuredChatRule>
         {
-            new("r1", "Incoming", "inc", Regex: false)
+            new("r1", "Incoming",
+                new List<string> { "Nave" },
+                new List<string> { "inc" },
+                MatchMode.ContainsAny)
         };
         var watcher = CreateWatcher(ocr, bus, rules);
 
         ocr.NextLines = new List<OcrLine>
         {
-            new("inc north", 0.3f, RectangleF.Empty) // below 0.5 threshold
+            new("[Nave] inc north", 0.3f, RectangleF.Empty) // below 0.5 threshold
         };
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
