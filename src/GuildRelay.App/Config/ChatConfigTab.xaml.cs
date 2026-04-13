@@ -28,11 +28,11 @@ public partial class ChatConfigTab : UserControl
         EnabledCheck.IsChecked = chat.Enabled;
         IntervalBox.Text = chat.CaptureIntervalMs.ToString();
         ConfidenceBox.Text = chat.OcrConfidenceThreshold.ToString("F2");
+        CooldownBox.Text = chat.DefaultCooldownSec.ToString();
         _currentRegion = chat.Region;
         UpdateRegionLabel();
 
-        var ruleLines = chat.Rules.Select(r =>
-            $"{r.Label}|{r.Pattern}|{(r.Regex ? "regex" : "literal")}");
+        var ruleLines = chat.Rules.Select(FormatRule);
         RulesBox.Text = string.Join(Environment.NewLine, ruleLines);
 
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
@@ -69,8 +69,7 @@ public partial class ChatConfigTab : UserControl
         if (TemplateCombo.SelectedItem is not string name) return;
         if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
 
-        // Check for duplicates by Id
-        var existingRules = ParseRules(RulesBox.Text);
+        var existingRules = ParseRules(RulesBox.Text, GetDefaultCooldown());
         var newRules = templateRules.Where(r => !existingRules.Any(er => er.Id == r.Id)).ToList();
 
         if (newRules.Count == 0)
@@ -79,8 +78,7 @@ public partial class ChatConfigTab : UserControl
             return;
         }
 
-        var lines = newRules.Select(r =>
-            $"{r.Label}|{r.Pattern}|{(r.Regex ? "regex" : "literal")}");
+        var lines = newRules.Select(FormatRule);
         var block = string.Join(Environment.NewLine, lines);
 
         var existing = RulesBox.Text.TrimEnd();
@@ -96,12 +94,14 @@ public partial class ChatConfigTab : UserControl
         if (_host is null) return;
         try
         {
-            var rules = ParseRules(RulesBox.Text);
+            var defaultCooldown = GetDefaultCooldown();
+            var rules = ParseRules(RulesBox.Text, defaultCooldown);
             var newChat = _host.Config.Chat with
             {
                 Enabled = EnabledCheck.IsChecked ?? false,
                 CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 1000,
                 OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
+                DefaultCooldownSec = defaultCooldown,
                 Region = _currentRegion,
                 Rules = rules
             };
@@ -131,7 +131,7 @@ public partial class ChatConfigTab : UserControl
             return;
         }
 
-        var rules = ParseRules(RulesBox.Text);
+        var rules = ParseRules(RulesBox.Text, GetDefaultCooldown());
         if (rules.Count == 0)
         {
             TestResultText.Text = "No rules defined. Add rules above first.";
@@ -156,22 +156,54 @@ public partial class ChatConfigTab : UserControl
         TestResultText.Foreground = Brushes.OrangeRed;
     }
 
-    private static List<ChatRuleConfig> ParseRules(string text)
+    private int GetDefaultCooldown()
+        => int.TryParse(CooldownBox.Text, out var cd) ? cd : 600;
+
+    /// <summary>
+    /// Format: label|pattern|regex  or  label|pattern|regex|cooldown
+    /// Only includes the cooldown field if it differs from the default.
+    /// </summary>
+    private static string FormatRule(ChatRuleConfig r)
+    {
+        var type = r.Regex ? "regex" : "literal";
+        // Always show cooldown so the user can see/edit it
+        return $"{r.Label}|{r.Pattern}|{type}|{r.CooldownSec}";
+    }
+
+    /// <summary>
+    /// Parses rules. Format: label|pattern|type  or  label|pattern|type|cooldown-sec.
+    /// Split limited to 4 parts so | inside regex patterns is preserved.
+    /// </summary>
+    private static List<ChatRuleConfig> ParseRules(string text, int defaultCooldown)
     {
         var rules = new List<ChatRuleConfig>();
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            // Split into at most 3 parts so | inside regex patterns is preserved
-            var parts = line.Trim().Split('|', 3);
+            var parts = line.Trim().Split('|', 4);
             if (parts.Length < 2) continue;
             var label = parts[0].Trim();
             var pattern = parts[1].Trim();
-            var isRegex = parts.Length > 2 && parts[2].Trim().Equals("regex", StringComparison.OrdinalIgnoreCase);
+
+            // Part 3 could be "regex", "literal", or a number (cooldown with type defaulting to literal)
+            var isRegex = false;
+            var cooldown = defaultCooldown;
+
+            if (parts.Length >= 3)
+            {
+                var typePart = parts[2].Trim();
+                isRegex = typePart.Equals("regex", StringComparison.OrdinalIgnoreCase);
+            }
+            if (parts.Length >= 4 && int.TryParse(parts[3].Trim(), out var cd))
+            {
+                cooldown = cd;
+            }
+
             rules.Add(new ChatRuleConfig(
                 Id: label.ToLowerInvariant().Replace(' ', '_'),
                 Label: label,
                 Pattern: pattern,
-                Regex: isRegex));
+                Regex: isRegex,
+                CooldownSec: cooldown));
         }
         return rules;
     }
