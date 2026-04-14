@@ -37,7 +37,21 @@ public sealed class ConfigStore
         {
             using var stream = File.OpenRead(_path);
             var loaded = await JsonSerializer.DeserializeAsync<AppConfig>(stream, Json).ConfigureAwait(false);
-            return loaded ?? AppConfig.Default;
+            if (loaded is null) return AppConfig.Default;
+
+            // Detect old config format: System.Text.Json silently deserializes
+            // old ChatRuleConfig fields into StructuredChatRule with null Channels/Keywords
+            // instead of throwing. If any rule has null Channels, the config is stale.
+            if (loaded.Chat?.Rules is not null &&
+                loaded.Chat.Rules.Exists(r => r.Channels is null || r.Keywords is null))
+            {
+                var backup = _path + ".bak";
+                File.Copy(_path, backup, overwrite: true);
+                await SaveAsync(AppConfig.Default).ConfigureAwait(false);
+                return AppConfig.Default;
+            }
+
+            return loaded;
         }
         catch (JsonException)
         {
