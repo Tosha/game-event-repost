@@ -76,6 +76,33 @@ public class ChatLineParserTests
     }
 
     [Fact]
+    public void HandlesOcrGarbledTimestamp()
+    {
+        // OCR misreads first digit of timestamp as apostrophe: '16:33:35 instead of 16:33:35
+        var result = ChatLineParser.Parse("['16:33:35] [game] yourdrunkpapa has come");
+        result.Channel.Should().Be("Game");
+        result.Body.Should().Be("yourdrunkpapa has come");
+    }
+
+    [Fact]
+    public void HandlesTimestampWithExtraChars()
+    {
+        // OCR reads various garbage in the timestamp field
+        var result = ChatLineParser.Parse("[l6:33:35] [game] some event");
+        result.Channel.Should().Be("Game");
+        result.Body.Should().Be("some event");
+    }
+
+    [Fact]
+    public void TwoUnknownTagsReturnsPlainText()
+    {
+        // Neither tag is a known channel
+        var result = ChatLineParser.Parse("[foo] [bar] some text");
+        result.Channel.Should().BeNull();
+        result.Body.Should().Be("[foo] [bar] some text");
+    }
+
+    [Fact]
     public void HandlesNormalizedLowercaseInput()
     {
         var result = ChatLineParser.Parse("[nave] [stormbrew] theyl just remake");
