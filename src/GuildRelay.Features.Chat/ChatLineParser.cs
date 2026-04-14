@@ -38,25 +38,29 @@ public static class ChatLineParser
         if (tag1 is null)
             return new ParsedChatLine(null, null, null, line);
 
-        // Check if tag1 is a timestamp (HH:MM:SS)
-        if (tag1.Length == 8 && tag1[2] == ':' && tag1[5] == ':')
+        if (KnownChannels.TryGetValue(tag1, out var ch1))
         {
-            timestamp = tag1;
-            var tag2 = ExtractBracketedTag(line, ref pos);
-            if (tag2 is not null && KnownChannels.TryGetValue(tag2, out var ch))
-                channel = ch;
-        }
-        else if (KnownChannels.TryGetValue(tag1, out var ch))
-        {
-            channel = ch;
+            // First tag is a channel (no timestamp)
+            channel = ch1;
         }
         else
         {
-            return new ParsedChatLine(null, null, null, line);
+            // First tag is NOT a known channel — treat it as a timestamp or
+            // OCR-garbled prefix (e.g., "'16:33:35", "16:33:35", "20:27:33").
+            // Skip any whitespace, then look for a channel in the next tag.
+            timestamp = tag1;
+            while (pos < line.Length && line[pos] == ' ') pos++;
+            var tag2 = ExtractBracketedTag(line, ref pos);
+            if (tag2 is not null && KnownChannels.TryGetValue(tag2, out var ch2))
+            {
+                channel = ch2;
+            }
+            else
+            {
+                // Neither first nor second tag is a known channel — give up
+                return new ParsedChatLine(null, null, null, line);
+            }
         }
-
-        if (channel is null)
-            return new ParsedChatLine(timestamp, null, null, line);
 
         while (pos < line.Length && line[pos] == ' ') pos++;
 
