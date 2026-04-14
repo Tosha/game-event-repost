@@ -61,6 +61,19 @@
                             <ui:Button Content="Close"        Click="OnCloseClick"/>
                         </StackPanel>
                         <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
+
+                        <Separator Margin="0,16,0,12"/>
+
+                        <TextBlock Text="Chat Watcher" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Capture interval (ms)" FontWeight="SemiBold"/>
+                        <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+
+                        <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>
+                        <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+
+                        <TextBlock Text="Default rule cooldown (seconds)" FontWeight="SemiBold"/>
+                        <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,4"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

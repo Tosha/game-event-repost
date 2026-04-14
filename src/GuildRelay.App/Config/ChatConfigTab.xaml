@@ -11,21 +11,12 @@
             </StackPanel>
 
             <TextBlock Text="Chat region" FontWeight="SemiBold"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
                 <ui:Button Content="Pick region" Click="OnPickRegion" Margin="0,0,8,0"/>
                 <TextBlock x:Name="RegionLabel" VerticalAlignment="Center"
                            Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                            Text="No region selected"/>
             </StackPanel>
-
-            <TextBlock Text="Capture interval (ms)" FontWeight="SemiBold"/>
-            <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
-
-            <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>
-            <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
-
-            <TextBlock Text="Default rule cooldown (seconds)" FontWeight="SemiBold"/>
-            <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,12"/>
 
             <!-- Rule templates -->
             <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
