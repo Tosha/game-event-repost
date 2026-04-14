@@ -18,7 +18,7 @@
                            Text="No region selected"/>
             </StackPanel>
 
-            <TextBlock Text="Capture interval (ms)" FontWeight="SemiBold"/>
+            <TextBlock Text="Capture interval (seconds)" FontWeight="SemiBold"/>
             <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
 
             <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>

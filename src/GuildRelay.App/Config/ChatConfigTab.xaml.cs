@@ -32,7 +32,7 @@ public partial class ChatConfigTab : UserControl
         _loading = true;
         EnabledToggle.IsChecked = chat.Enabled;
         _loading = false;
-        IntervalBox.Text = chat.CaptureIntervalMs.ToString();
+        IntervalBox.Text = chat.CaptureIntervalSec.ToString();
         ConfidenceBox.Text = chat.OcrConfidenceThreshold.ToString("F2");
         CooldownBox.Text = chat.DefaultCooldownSec.ToString();
         _currentRegion = chat.Region;
@@ -260,7 +260,7 @@ public partial class ChatConfigTab : UserControl
             var newChat = _host.Config.Chat with
             {
                 Enabled = EnabledToggle.IsChecked ?? false,
-                CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 1000,
+                CaptureIntervalSec = int.TryParse(IntervalBox.Text, out var iv) ? iv : 5,
                 OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
                 DefaultCooldownSec = GetDefaultCooldown(),
                 Region = _currentRegion,

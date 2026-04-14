@@ -4,7 +4,7 @@ namespace GuildRelay.Core.Config;
 
 public sealed record StatusConfig(
     bool Enabled,
-    int CaptureIntervalMs,
+    int CaptureIntervalSec,
     double OcrConfidenceThreshold,
     int DebounceSamples,
     RegionConfig Region,
@@ -14,7 +14,7 @@ public sealed record StatusConfig(
 {
     public static StatusConfig Default => new(
         Enabled: false,
-        CaptureIntervalMs: 3000,
+        CaptureIntervalSec: 5,
         OcrConfidenceThreshold: 0.65,
         DebounceSamples: 3,
         Region: RegionConfig.Empty,

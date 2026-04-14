@@ -26,7 +26,7 @@ public partial class StatusConfigTab : UserControl
         _loading = true;
         EnabledToggle.IsChecked = status.Enabled;
         _loading = false;
-        IntervalBox.Text = status.CaptureIntervalMs.ToString();
+        IntervalBox.Text = status.CaptureIntervalSec.ToString();
         DebounceBox.Text = status.DebounceSamples.ToString();
         _currentRegion = status.Region;
         UpdateRegionLabel();
@@ -87,7 +87,7 @@ public partial class StatusConfigTab : UserControl
             var newStatus = _host.Config.Status with
             {
                 Enabled = EnabledToggle.IsChecked ?? false,
-                CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 3000,
+                CaptureIntervalSec = int.TryParse(IntervalBox.Text, out var iv) ? iv : 5,
                 DebounceSamples = int.TryParse(DebounceBox.Text, out var db) ? db : 3,
                 Region = _currentRegion,
                 DisconnectPatterns = patterns

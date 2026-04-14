@@ -37,7 +37,7 @@ public class StatusWatcherTests
         var config = StatusConfig.Default with
         {
             Enabled = true,
-            CaptureIntervalMs = 50,
+            CaptureIntervalSec = 1,
             DebounceSamples = 1,
             Region = new RegionConfig(0, 0, 100, 100, 96,
                 new ResolutionConfig(1920, 1080), "TEST")
@@ -61,11 +61,11 @@ public class StatusWatcherTests
         // First tick: clean → establishes Connected (silent)
         ocr.NextLines = new List<OcrLine> { new("Game running", 0.9f, RectangleF.Empty) };
         await watcher.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
+        await Task.Delay(1500);
 
         // Second tick: disconnect text → fires transition
         ocr.NextLines = new List<OcrLine> { new("disconnected from server", 0.9f, RectangleF.Empty) };
-        await Task.Delay(100);
+        await Task.Delay(1500);
 
         await watcher.StopAsync();
         bus.Complete();
@@ -91,11 +91,11 @@ public class StatusWatcherTests
         // Establish Disconnected (silent from Unknown)
         ocr.NextLines = new List<OcrLine> { new("disconnected", 0.9f, RectangleF.Empty) };
         await watcher.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
+        await Task.Delay(1500);
 
         // Reconnect
         ocr.NextLines = new List<OcrLine> { new("Game running", 0.9f, RectangleF.Empty) };
-        await Task.Delay(100);
+        await Task.Delay(1500);
 
         await watcher.StopAsync();
         bus.Complete();
@@ -118,7 +118,7 @@ public class StatusWatcherTests
         // First observation establishes state silently
         ocr.NextLines = new List<OcrLine> { new("disconnected", 0.9f, RectangleF.Empty) };
         await watcher.StartAsync(CancellationToken.None);
-        await Task.Delay(100);
+        await Task.Delay(1500);
 
         await watcher.StopAsync();
         bus.Complete();
