@@ -15,22 +15,6 @@
         <ui:TitleBar Grid.Row="0" Title="GuildRelay — Config"/>
 
         <TabControl Grid.Row="1" Margin="12,4,12,12" x:Name="MainTabs">
-            <TabItem Header="General">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="12">
-                        <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
-                        <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12"/>
-                        <TextBlock Text="Player name" FontWeight="SemiBold"/>
-                        <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12"/>
-                        <StackPanel Orientation="Horizontal">
-                            <ui:Button Content="Test webhook" Click="OnTestWebhookClick" Appearance="Primary" Margin="0,0,8,0"/>
-                            <ui:Button Content="Save"         Click="OnSaveClick"        Margin="0,0,8,0"/>
-                            <ui:Button Content="Close"        Click="OnCloseClick"/>
-                        </StackPanel>
-                        <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
             <TabItem x:Name="ChatTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
@@ -57,6 +41,28 @@
                     </StackPanel>
                 </TabItem.Header>
                 <local:StatusConfigTab x:Name="StatusTab"/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Settings24" Margin="0,0,6,0" FontSize="14"/>
+                        <TextBlock Text="Settings"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
+                        <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12"/>
+                        <TextBlock Text="Player name" FontWeight="SemiBold"/>
+                        <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Button Content="Test webhook" Click="OnTestWebhookClick" Appearance="Primary" Margin="0,0,8,0"/>
+                            <ui:Button Content="Save"         Click="OnSaveClick"        Margin="0,0,8,0"/>
+                            <ui:Button Content="Close"        Click="OnCloseClick"/>
+                        </StackPanel>
+                        <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>
