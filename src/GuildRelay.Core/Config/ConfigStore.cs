@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -32,9 +33,21 @@ public sealed class ConfigStore
             return AppConfig.Default;
         }
 
-        using var stream = File.OpenRead(_path);
-        var loaded = await JsonSerializer.DeserializeAsync<AppConfig>(stream, Json).ConfigureAwait(false);
-        return loaded ?? AppConfig.Default;
+        try
+        {
+            using var stream = File.OpenRead(_path);
+            var loaded = await JsonSerializer.DeserializeAsync<AppConfig>(stream, Json).ConfigureAwait(false);
+            return loaded ?? AppConfig.Default;
+        }
+        catch (JsonException)
+        {
+            // Config format changed (e.g., ChatRuleConfig → StructuredChatRule).
+            // Back up the old config and start fresh with defaults.
+            var backup = _path + ".bak";
+            File.Copy(_path, backup, overwrite: true);
+            await SaveAsync(AppConfig.Default).ConfigureAwait(false);
+            return AppConfig.Default;
+        }
     }
 
     public async Task SaveAsync(AppConfig config)
