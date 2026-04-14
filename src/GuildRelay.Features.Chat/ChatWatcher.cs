@@ -164,15 +164,28 @@ public sealed class ChatWatcher : IFeature
         {
             var (normalized, original) = normalizedLines[i];
 
-            var joinedNormalized = normalized;
-            var joinedOriginal = original;
+            // Build candidates: try joining up to 3 consecutive lines (longest first)
+            // to handle OCR splitting long [Game] messages across multiple lines.
+            var candidates = new List<(string normalized, string original)>();
+
+            // 3-line join
+            if (i + 2 < normalizedLines.Count)
+            {
+                candidates.Add((
+                    normalized + " " + normalizedLines[i + 1].normalized + " " + normalizedLines[i + 2].normalized,
+                    original + " " + normalizedLines[i + 1].original + " " + normalizedLines[i + 2].original));
+            }
+            // 2-line join
             if (i + 1 < normalizedLines.Count)
             {
-                joinedNormalized = normalized + " " + normalizedLines[i + 1].normalized;
-                joinedOriginal = original + " " + normalizedLines[i + 1].original;
+                candidates.Add((
+                    normalized + " " + normalizedLines[i + 1].normalized,
+                    original + " " + normalizedLines[i + 1].original));
             }
+            // Single line
+            candidates.Add((normalized, original));
 
-            foreach (var candidate in new[] { (joinedNormalized, joinedOriginal), (normalized, original) })
+            foreach (var candidate in candidates)
             {
                 if (_dedup.IsDuplicate(candidate.Item1))
                 {
