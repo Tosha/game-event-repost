@@ -15,11 +15,17 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         if (DataContext is not ConfigViewModel vm) return;
         WebhookBox.Password = vm.WebhookUrl;
         PlayerBox.Text = vm.PlayerName;
+
+        // Load Chat Watcher advanced settings
+        var chat = vm.Host.Config.Chat;
+        IntervalBox.Text = chat.CaptureIntervalSec.ToString();
+        ConfidenceBox.Text = chat.OcrConfidenceThreshold.ToString("F2");
+        CooldownBox.Text = chat.DefaultCooldownSec.ToString();
+
         ChatTab.DataContext = vm;
         AudioTab.DataContext = vm;
         StatusTab.DataContext = vm;
 
-        // Set initial indicator dots
         UpdateIndicators(vm);
     }
 
@@ -63,6 +69,17 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         if (DataContext is not ConfigViewModel vm) return;
         vm.WebhookUrl = WebhookBox.Password;
         vm.PlayerName = PlayerBox.Text;
+
+        // Save Chat Watcher advanced settings
+        var newChat = vm.Host.Config.Chat with
+        {
+            CaptureIntervalSec = int.TryParse(IntervalBox.Text, out var iv) ? iv : 5,
+            OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
+            DefaultCooldownSec = int.TryParse(CooldownBox.Text, out var cd) ? cd : 600
+        };
+        var newConfig = vm.Host.Config with { Chat = newChat };
+        vm.Host.UpdateConfig(newConfig);
+
         await vm.SaveAsync();
         StatusText.Text = "Saved.";
     }
