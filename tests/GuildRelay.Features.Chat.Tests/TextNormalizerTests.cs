@@ -33,6 +33,15 @@ public class TextNormalizerTests
     }
 
     [Fact]
+    public void ReplacesBulletCharactersWithSpaces()
+    {
+        // OCR frequently reads bullet dots between words in MO2 chat.
+        // Replace with space (not strip) to preserve word boundaries.
+        TextNormalizer.Normalize("of\u2022profiteers has").Should().Be("of profiteers has");
+        TextNormalizer.Normalize("\u2022plains of\u2022meduli").Should().Be("plains of meduli");
+    }
+
+    [Fact]
     public void EmptyInputReturnsEmpty()
     {
         TextNormalizer.Normalize("").Should().BeEmpty();

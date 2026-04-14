@@ -21,10 +21,6 @@ using Xunit.Abstractions;
 
 namespace GuildRelay.Platform.Windows.Tests;
 
-/// <summary>
-/// End-to-end tests: real screenshot → OCR → normalize → parse channel → match rule.
-/// Uses the new structured ChatLineParser + ChannelMatcher pipeline.
-/// </summary>
 public class ChatWatcherEndToEndTests
 {
     private readonly ITestOutputHelper _output;
@@ -83,30 +79,9 @@ public class ChatWatcherEndToEndTests
         return result.Lines.ToList();
     }
 
-    [Fact]
-    public void NormalizerPreservesBrackets_FixedBug()
-    {
-        var input = "[20:27:33][Game] You received a task to kill Dire Wolf (8)";
-        var normalized = TextNormalizer.Normalize(input);
-
-        _output.WriteLine($"Input:      \"{input}\"");
-        _output.WriteLine($"Normalized: \"{normalized}\"");
-
-        normalized.Should().Contain("[game]", "brackets are preserved");
-
-        // Now test with the new structured pipeline
-        var parsed = ChatLineParser.Parse(normalized);
-        parsed.Channel.Should().Be("Game");
-        parsed.Body.Should().Contain("dire wolf");
-    }
-
-    /// <summary>
-    /// Simulates ChatWatcher's line-joining + channel matching on OCR output.
-    /// </summary>
     private List<string> MatchWithChannelMatcher(List<OcrLine> lines, StructuredChatRule rule)
     {
         var matcher = new ChannelMatcher(new[] { rule });
-
         var normalizedLines = new List<(string normalized, string original)>();
         foreach (var line in lines)
         {
@@ -123,7 +98,6 @@ public class ChatWatcherEndToEndTests
         {
             var (norm, orig) = normalizedLines[i];
 
-            // Try single line
             var parsed = ChatLineParser.Parse(norm);
             var match = matcher.FindMatch(parsed);
             if (match is not null)
@@ -133,7 +107,6 @@ public class ChatWatcherEndToEndTests
                 continue;
             }
 
-            // Try joined with next line
             if (i + 1 < normalizedLines.Count)
             {
                 var joined = norm + " " + normalizedLines[i + 1].normalized;
@@ -150,45 +123,74 @@ public class ChatWatcherEndToEndTests
         return matches;
     }
 
+    private static StructuredChatRule DefaultGameEventsRule =>
+        RuleTemplates.BuiltIn["MO2 Game Events"][0];
+
     [Fact]
-    public async Task Example2_SylvanSanctum_FullPipeline()
+    public void NormalizerPreservesBrackets()
     {
-        var lines = await OcrFixture("mo2-chat-example2.png");
+        var input = "[20:27:33][Game] You received a task to kill Dire Wolf (8)";
+        var normalized = TextNormalizer.Normalize(input);
+        normalized.Should().Contain("[game]");
+        var parsed = ChatLineParser.Parse(normalized);
+        parsed.Channel.Should().Be("Game");
+    }
+
+    // ── Each fixture tested against the default MO2 Game Events rule ──
+
+    [Fact]
+    public async Task SylvanSanctum_MatchesDefaultRule()
+    {
+        // [Game] A large band of Profiteers ... pillaging the Sylvan Sanctum!
+        var lines = await OcrFixture("mo2-chat-sylvan-sanctum.png");
         if (lines.Count == 0) return;
-
         _output.WriteLine("OCR lines:");
-        foreach (var line in lines)
-            _output.WriteLine($"  \"{line.Text}\"");
+        foreach (var l in lines) _output.WriteLine($"  \"{l.Text}\"");
 
-        var rule = new StructuredChatRule("r1", "Game Events",
-            new List<string> { "Game" },
-            new List<string> { "Sylvan Sanctum" },
-            MatchMode.ContainsAny);
-
-        var matches = MatchWithChannelMatcher(lines, rule);
-
-        _output.WriteLine($"\nMatches found: {matches.Count}");
-        matches.Should().NotBeEmpty("should find the Sylvan Sanctum game event");
+        var matches = MatchWithChannelMatcher(lines, DefaultGameEventsRule);
+        _output.WriteLine($"\nMatches: {matches.Count}");
+        matches.Should().NotBeEmpty("Sylvan Sanctum is in the default MO2 locations list");
     }
 
     [Fact]
-    public async Task Example3_DireWolf_FullPipeline()
+    public async Task EasternHighlands_MatchesDefaultRule()
     {
-        var lines = await OcrFixture("mo2-chat-example3.png");
+        // [Game] A large band of Carvers ... harassing the Eastern Highlands!
+        var lines = await OcrFixture("mo2-chat-eastern-highlands.png");
         if (lines.Count == 0) return;
-
         _output.WriteLine("OCR lines:");
-        foreach (var line in lines)
-            _output.WriteLine($"  \"{line.Text}\"");
+        foreach (var l in lines) _output.WriteLine($"  \"{l.Text}\"");
 
-        var rule = new StructuredChatRule("r1", "Game Events",
-            new List<string> { "Game" },
-            new List<string> { "Dire Wolf" },
-            MatchMode.ContainsAny);
+        var matches = MatchWithChannelMatcher(lines, DefaultGameEventsRule);
+        _output.WriteLine($"\nMatches: {matches.Count}");
+        matches.Should().NotBeEmpty("Eastern Highlands is in the default MO2 locations list");
+    }
 
-        var matches = MatchWithChannelMatcher(lines, rule);
+    [Fact]
+    public async Task PlainsOfMeduli_MatchesDefaultRule()
+    {
+        // [Game] A large band of Profiteers ... pillaging the Plains of Meduli!
+        var lines = await OcrFixture("mo2-chat-plains-of-meduli.png");
+        if (lines.Count == 0) return;
+        _output.WriteLine("OCR lines:");
+        foreach (var l in lines) _output.WriteLine($"  \"{l.Text}\"");
 
-        _output.WriteLine($"\nMatches found: {matches.Count}");
-        matches.Should().NotBeEmpty("should find the Dire Wolf task event");
+        var matches = MatchWithChannelMatcher(lines, DefaultGameEventsRule);
+        _output.WriteLine($"\nMatches: {matches.Count}");
+        matches.Should().NotBeEmpty("Plains of Meduli is in the default MO2 locations list");
+    }
+
+    [Fact]
+    public async Task DireWolf_DoesNotMatchDefaultLocationRule()
+    {
+        // [Game] You received a task to kill Dire Wolf (8) -- not a location event
+        var lines = await OcrFixture("mo2-chat-dire-wolf.png");
+        if (lines.Count == 0) return;
+        _output.WriteLine("OCR lines:");
+        foreach (var l in lines) _output.WriteLine($"  \"{l.Text}\"");
+
+        var matches = MatchWithChannelMatcher(lines, DefaultGameEventsRule);
+        _output.WriteLine($"\nMatches: {matches.Count}");
+        matches.Should().BeEmpty("Dire Wolf is a creature, not in the MO2 locations list");
     }
 }
