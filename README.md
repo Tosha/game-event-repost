@@ -20,27 +20,68 @@ A Windows desktop companion app for **Mortal Online 2** guilds. GuildRelay watch
 
 GuildRelay runs quietly in your system tray and monitors three things:
 
-- **Chat Watcher** -- Captures a region of your screen where the in-game chat window is displayed, reads it with OCR, and posts to Discord when it spots keywords you care about.
+- **Chat Watcher** -- Captures a region of your screen where the in-game chat window is displayed, reads it with OCR, and posts to Discord when it spots keywords on specific chat channels.
 - **Audio Watcher** -- Listens to your system audio output and matches it against short reference clips you provide (e.g. a horse whinny, combat music sting). When a match is detected, Discord gets a notification.
 - **Status Watcher** -- Monitors a screen region for disconnect dialogs. If you lose connection to the server, your guild sees it immediately. When you reconnect, they see that too.
 
-Each feature is independently toggled on or off. A single shared Discord webhook URL (distributed by your guild leader) is all that is needed -- no bots, no server infrastructure, no accounts to create.
+Each feature can be toggled on or off with a switch. A green dot on the tab header shows which features are currently active. A single shared Discord webhook URL (distributed by your guild leader) is all that is needed -- no bots, no server infrastructure, no accounts to create.
 
 ## Chat Watcher setup
 
-1. Switch to the **Chat Watcher** tab in the config window.
+Chat Watcher understands MO2's chat channel structure natively. Instead of writing regex patterns, you pick channels with checkboxes and enter keywords as a simple comma-separated list.
+
+### Quick start
+
+1. Switch to the **Chat Watcher** tab and flip the toggle switch to enable it.
 2. Click **Pick region** and drag a rectangle over your in-game chat window. MO2 must be in **borderless or windowed** mode.
-3. Add rules in the format `label|pattern|type`. Examples:
+3. The **MO2 Game Events** rule template is pre-loaded by default -- it watches the GAME channel for events at 45 known locations (Sylvan Sanctum, Tindremic Heartlands, Tindrem Sewers, and more).
+4. Click **Save Chat Settings**.
+5. Play the game. When a game event fires at a known location, Discord gets a notification.
 
-| Rule | What it catches |
+### MO2 chat channels
+
+GuildRelay recognizes all MO2 chat channels:
+
+| Channel | Typical content |
 |---|---|
-| `Dire Wolf\|\\[Game\\].*Dire Wolf\|regex` | Any `[Game]` message mentioning Dire Wolf |
-| `Sylvan Sanctum\|\\[Game\\].*Sylvan Sanctum\|regex` | Profiteer events at Sylvan Sanctum |
-| `Incoming\|(inc\|incoming\|enemies)\|regex` | Player callouts like "inc north" |
-| `Zerg\|zerg\|literal` | Any mention of "zerg" (case-insensitive) |
+| **GAME** | System events -- dungeon spawns, tasks, player online/offline |
+| **SERVER** | Server announcements and restarts |
+| **GUILD** | Guild-only chat |
+| **NAVE** | Global player chat |
+| **SAY** / **YELL** | Local and ranged player chat |
+| **TRADE** | Trade chat |
+| **COMBAT** | Combat log entries |
+| **SKILL** | Skill-up notifications |
+| **WHISPER** | Private messages |
+| **HELP** | Help requests |
 
-4. Enable the feature and click **Save**.
-5. Each rule has a **60-second cooldown** by default -- the same event won't spam your Discord channel even if OCR re-reads it multiple times.
+### Creating rules
+
+Each rule consists of:
+
+- **Channels** -- which MO2 channels to watch (checkboxes)
+- **Keywords** -- what to look for in the message body (comma-separated list, or a regex pattern)
+- **Match mode** -- "Contains any" (simple keyword matching) or "Regex" (for power users)
+- **Cooldown** -- minimum seconds between repeated notifications for this rule (default: 600 = 10 minutes)
+
+**Example rules:**
+
+| Rule name | Channels | Keywords | Mode | What it catches |
+|---|---|---|---|---|
+| MO2 Game Events | GAME | Sylvan Sanctum, Dire Wolf, Tindremic Heartlands, ... | Contains any | Game events at known locations |
+| Incoming alerts | NAVE, YELL | inc, incoming, enemies | Contains any | Player callouts about incoming threats |
+| Guild relay | GUILD | *(empty = all messages)* | Contains any | Every guild chat message |
+| Server notices | SERVER | *(empty = all messages)* | Contains any | All server announcements |
+
+An empty keywords list means "match all messages on the selected channels" -- useful for relaying entire channels to Discord.
+
+### Rule templates
+
+Click the **Load Template** button to add pre-built rules. The **MO2 Game Events** template comes pre-loaded for new installations and watches the GAME channel for events at 45 MO2 locations.
+
+### Testing rules
+
+Use the **Test a message** field at the bottom of the Chat Watcher tab to verify your rules work. Paste any chat message (e.g. `[Game] A large band of Profiteers has been seen pillaging the Sylvan Sanctum!`) and click **Test**. The result shows which rule matched, or why it didn't (wrong channel, no keyword match, etc.).
 
 ## Anti-cheat safety
 
@@ -77,9 +118,9 @@ All settings are stored locally at `%APPDATA%\GuildRelay\config.json`. The webho
 - **Region**: The screen rectangle to capture and OCR. Picked interactively via an overlay.
 - **Capture interval**: How often to capture and OCR (default: 1000 ms).
 - **OCR confidence threshold**: Lines below this confidence are silently dropped (default: 0.65).
-- **Rules**: Each rule has a label, a pattern (plain text or regex), and a type. Format: `label|pattern|type`.
-- **Per-rule cooldown**: Each rule can only fire once per 60 seconds (default). Prevents OCR noise from spamming Discord.
-- **Line joining**: OCR sometimes splits a long chat message across two lines. GuildRelay automatically joins adjacent lines when matching, so patterns like `[Game].*Dire Wolf` work even if "Dire" and "Wolf" end up on separate OCR lines.
+- **Rules**: Channel-aware rules with checkboxes for MO2 channels and comma-separated keywords. See "Creating rules" above.
+- **Per-rule cooldown**: Each rule can only fire once per cooldown period (default: 10 minutes). Prevents OCR noise from spamming Discord.
+- **Line joining**: OCR sometimes splits a long chat message across two lines. GuildRelay automatically joins adjacent lines when matching, so keywords like "Dire Wolf" work even if OCR splits them across lines.
 
 ### Audio Watcher
 
@@ -115,14 +156,14 @@ GuildRelay.sln
 src/
   GuildRelay.Core/              Contracts, config, events, rules -- no Windows APIs
   GuildRelay.Platform.Windows/  BitBlt capture, Windows.Media.Ocr, WASAPI, NWaves MFCC, DPI
-  GuildRelay.Features.Chat/     Chat Watcher feature (OCR + dedup + rules + cooldowns)
-  GuildRelay.Features.Audio/    Audio Watcher feature (MFCC matching + cooldowns)
-  GuildRelay.Features.Status/   Status Watcher feature (debounced state machine)
+  GuildRelay.Features.Chat/     Chat Watcher (channel parser, keyword matcher, OCR, dedup)
+  GuildRelay.Features.Audio/    Audio Watcher (MFCC matching + cooldowns)
+  GuildRelay.Features.Status/   Status Watcher (debounced state machine)
   GuildRelay.Publisher/         Discord webhook posting + template engine
   GuildRelay.Logging/           Serilog setup + JSONL event log + webhook URL redaction
-  GuildRelay.App/               WPF tray app, config window, region picker
+  GuildRelay.App/               WPF tray app (Fluent dark theme), config window, region picker
 tests/
-  6 test projects with 84 tests covering all feature logic
+  6 test projects with 100 tests covering all feature logic
 ```
 
 The Core project has zero Windows dependencies and is testable on any platform. All Windows API calls are isolated in `Platform.Windows` behind swap-out interfaces (`IScreenCapture`, `IOcrEngine`, `IAudioMatcher`, `IAudioSource`).
