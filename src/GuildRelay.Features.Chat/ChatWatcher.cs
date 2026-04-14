@@ -13,6 +13,22 @@ using GuildRelay.Features.Chat.Preprocessing;
 
 namespace GuildRelay.Features.Chat;
 
+/// <summary>
+/// Diagnostic data emitted each tick for the debug live view.
+/// </summary>
+public sealed class ChatTickDebugInfo
+{
+    public byte[] CapturedImageBgra { get; init; } = Array.Empty<byte>();
+    public int ImageWidth { get; init; }
+    public int ImageHeight { get; init; }
+    public int ImageStride { get; init; }
+    public List<string> OcrLines { get; init; } = new();
+    public List<string> NormalizedLines { get; init; } = new();
+    public List<string> ParsedChannels { get; init; } = new();
+    public List<string> MatchResults { get; init; } = new();
+    public DateTimeOffset Timestamp { get; init; }
+}
+
 public sealed class ChatWatcher : IFeature
 {
     private readonly IScreenCapture _capture;
@@ -46,6 +62,9 @@ public sealed class ChatWatcher : IFeature
     public string Id => "chat";
     public string DisplayName => "Chat Watcher";
     public FeatureStatus Status { get; private set; } = FeatureStatus.Idle;
+
+    /// <summary>Fired each tick with diagnostic info. Subscribe from the debug window.</summary>
+    public event Action<ChatTickDebugInfo>? DebugTick;
 
 #pragma warning disable CS0067
     public event EventHandler<StatusChangedArgs>? StatusChanged;
@@ -91,7 +110,7 @@ public sealed class ChatWatcher : IFeature
             }
             catch (Exception)
             {
-                // Log and continue — don't let a single tick failure kill the loop.
+                // Log and continue
             }
         }
     }
@@ -113,7 +132,17 @@ public sealed class ChatWatcher : IFeature
             preprocessed.Stride,
             ct).ConfigureAwait(false);
 
-        var matcher = _matcher; // snapshot
+        var matcher = _matcher;
+
+        // Build debug info
+        var debug = DebugTick is not null ? new ChatTickDebugInfo
+        {
+            CapturedImageBgra = (byte[])raw.BgraPixels.Clone(),
+            ImageWidth = raw.Width,
+            ImageHeight = raw.Height,
+            ImageStride = raw.Stride,
+            Timestamp = DateTimeOffset.UtcNow
+        } : null;
 
         var normalizedLines = new List<(string normalized, string original)>();
         foreach (var line in ocrResult.Lines)
@@ -122,7 +151,13 @@ public sealed class ChatWatcher : IFeature
                 continue;
             var normalized = TextNormalizer.Normalize(line.Text);
             if (!string.IsNullOrEmpty(normalized))
+            {
                 normalizedLines.Add((normalized, line.Text));
+                debug?.OcrLines.Add(line.Text);
+                debug?.NormalizedLines.Add(normalized);
+                var parsed = ChatLineParser.Parse(normalized);
+                debug?.ParsedChannels.Add(parsed.Channel ?? "—");
+            }
         }
 
         for (int i = 0; i < normalizedLines.Count; i++)
@@ -137,19 +172,25 @@ public sealed class ChatWatcher : IFeature
                 joinedOriginal = original + " " + normalizedLines[i + 1].original;
             }
 
-            // Try joined first (catches split messages), then single line
             foreach (var candidate in new[] { (joinedNormalized, joinedOriginal), (normalized, original) })
             {
                 if (_dedup.IsDuplicate(candidate.Item1))
+                {
+                    debug?.MatchResults.Add($"DEDUP: {candidate.Item2}");
                     continue;
+                }
 
-                // Parse the channel from the OCR text, then route to matching rules
                 var parsed = ChatLineParser.Parse(candidate.Item1);
                 var match = matcher.FindMatch(parsed);
                 if (match is null) continue;
 
                 if (!_cooldown.TryFire(match.Rule.Id, TimeSpan.FromSeconds(match.Rule.CooldownSec)))
+                {
+                    debug?.MatchResults.Add($"COOLDOWN: [{match.Rule.Label}] {candidate.Item2}");
                     continue;
+                }
+
+                debug?.MatchResults.Add($"POSTED: [{match.Rule.Label}] {candidate.Item2}");
 
                 var evt = new DetectionEvent(
                     FeatureId: "chat",
@@ -164,5 +205,8 @@ public sealed class ChatWatcher : IFeature
                 break;
             }
         }
+
+        if (debug is not null && normalizedLines.Count > 0)
+            DebugTick?.Invoke(debug);
     }
 }

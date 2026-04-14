@@ -7,6 +7,7 @@
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <ui:ToggleSwitch x:Name="EnabledToggle" IsChecked="False" Checked="OnToggleChanged" Unchecked="OnToggleChanged"/>
                 <TextBlock Text="Chat Watcher" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,0"/>
+                <ui:Button Content="Live View" Click="OnOpenLiveView" Margin="16,0,0,0" FontSize="11"/>
             </StackPanel>
 
             <TextBlock Text="Chat region" FontWeight="SemiBold"/>

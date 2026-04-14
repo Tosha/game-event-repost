@@ -19,6 +19,7 @@ public partial class ChatConfigTab : UserControl
     private bool _loading;
     private readonly ObservableCollection<StructuredChatRule> _rules = new();
     private readonly Dictionary<string, CheckBox> _channelChecks = new();
+    private DebugLiveView? _debugWindow;
 
     public ChatConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
@@ -184,6 +185,31 @@ public partial class ChatConfigTab : UserControl
             window.UpdateIndicators(vm);
 
         StatusText.Text = enabled ? "Chat Watcher enabled." : "Chat Watcher disabled.";
+    }
+
+    private void OnOpenLiveView(object sender, RoutedEventArgs e)
+    {
+        if (_host is null) return;
+
+        var chatFeature = _host.Registry.Get("chat") as ChatWatcher;
+        if (chatFeature is null)
+        {
+            StatusText.Text = "Chat Watcher not registered.";
+            return;
+        }
+
+        if (_debugWindow is null || !_debugWindow.IsLoaded)
+        {
+            _debugWindow = new DebugLiveView();
+            _debugWindow.Attach(chatFeature);
+            _debugWindow.Show();
+        }
+        else
+        {
+            _debugWindow.Activate();
+        }
+
+        StatusText.Text = "Live debug view opened. Enable Chat Watcher to see data.";
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
