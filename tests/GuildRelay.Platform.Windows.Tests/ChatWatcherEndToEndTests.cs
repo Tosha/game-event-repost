@@ -97,26 +97,26 @@ public class ChatWatcherEndToEndTests
         for (int i = 0; i < normalizedLines.Count; i++)
         {
             var (norm, orig) = normalizedLines[i];
+            var matched = false;
 
-            var parsed = ChatLineParser.Parse(norm);
-            var match = matcher.FindMatch(parsed);
-            if (match is not null)
+            // Try joining up to 3 lines (longest first) to handle long messages
+            for (int span = Math.Min(3, normalizedLines.Count - i); span >= 1 && !matched; span--)
             {
-                _output.WriteLine($"  MATCH (single): \"{orig}\"");
-                matches.Add(orig);
-                continue;
-            }
-
-            if (i + 1 < normalizedLines.Count)
-            {
-                var joined = norm + " " + normalizedLines[i + 1].normalized;
-                var joinedOrig = orig + " " + normalizedLines[i + 1].original;
-                var parsedJoined = ChatLineParser.Parse(joined);
-                var matchJoined = matcher.FindMatch(parsedJoined);
-                if (matchJoined is not null)
+                var joinedNorm = norm;
+                var joinedOrig = orig;
+                for (int j = 1; j < span; j++)
                 {
-                    _output.WriteLine($"  MATCH (joined): \"{joinedOrig}\"");
+                    joinedNorm += " " + normalizedLines[i + j].normalized;
+                    joinedOrig += " " + normalizedLines[i + j].original;
+                }
+
+                var parsed = ChatLineParser.Parse(joinedNorm);
+                var match = matcher.FindMatch(parsed);
+                if (match is not null)
+                {
+                    _output.WriteLine($"  MATCH ({span}-line): \"{joinedOrig}\"");
                     matches.Add(joinedOrig);
+                    matched = true;
                 }
             }
         }
