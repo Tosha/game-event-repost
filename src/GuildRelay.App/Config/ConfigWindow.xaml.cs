@@ -18,7 +18,7 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
 
         // Load Chat Watcher advanced settings
         var chat = vm.Host.Config.Chat;
-        IntervalBox.Text = chat.CaptureIntervalMs.ToString();
+        IntervalBox.Text = chat.CaptureIntervalSec.ToString();
         ConfidenceBox.Text = chat.OcrConfidenceThreshold.ToString("F2");
         CooldownBox.Text = chat.DefaultCooldownSec.ToString();
 
@@ -73,7 +73,7 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         // Save Chat Watcher advanced settings
         var newChat = vm.Host.Config.Chat with
         {
-            CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 1000,
+            CaptureIntervalSec = int.TryParse(IntervalBox.Text, out var iv) ? iv : 5,
             OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
             DefaultCooldownSec = int.TryParse(CooldownBox.Text, out var cd) ? cd : 600
         };

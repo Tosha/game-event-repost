@@ -40,7 +40,7 @@ public class ChatWatcherTests
         var config = ChatConfig.Default with
         {
             Enabled = true,
-            CaptureIntervalMs = 50,
+            CaptureIntervalSec = 1,
             OcrConfidenceThreshold = 0.5,
             Region = new RegionConfig(0, 0, 100, 100, 96,
                 new ResolutionConfig(1920, 1080), "TEST"),
@@ -77,7 +77,7 @@ public class ChatWatcherTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(500);
+        await Task.Delay(1500);
         await watcher.StopAsync();
         bus.Complete();
 
@@ -113,7 +113,7 @@ public class ChatWatcherTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(300);
+        await Task.Delay(2500);
         await watcher.StopAsync();
         bus.Complete();
 
@@ -145,7 +145,7 @@ public class ChatWatcherTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(500);
+        await Task.Delay(1500);
         await watcher.StopAsync();
         bus.Complete();
 

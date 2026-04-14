@@ -4,7 +4,7 @@ namespace GuildRelay.Core.Config;
 
 public sealed record ChatConfig(
     bool Enabled,
-    int CaptureIntervalMs,
+    int CaptureIntervalSec,
     double OcrConfidenceThreshold,
     int DefaultCooldownSec,
     RegionConfig Region,
@@ -14,7 +14,7 @@ public sealed record ChatConfig(
 {
     public static ChatConfig Default => new(
         Enabled: false,
-        CaptureIntervalMs: 1000,
+        CaptureIntervalSec: 5,
         OcrConfidenceThreshold: 0.65,
         DefaultCooldownSec: 600,
         Region: RegionConfig.Empty,

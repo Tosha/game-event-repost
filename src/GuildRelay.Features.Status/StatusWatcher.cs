@@ -80,7 +80,7 @@ public sealed class StatusWatcher : IFeature
 
     private async Task CaptureLoopAsync(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(_config.CaptureIntervalMs));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_config.CaptureIntervalSec));
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
         {
             try
