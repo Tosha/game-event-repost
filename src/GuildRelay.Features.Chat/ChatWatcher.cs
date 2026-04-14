@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +9,6 @@ using GuildRelay.Core.Config;
 using GuildRelay.Core.Events;
 using GuildRelay.Core.Features;
 using GuildRelay.Core.Ocr;
-using GuildRelay.Core.Rules;
 using GuildRelay.Features.Chat.Preprocessing;
 
 namespace GuildRelay.Features.Chat;
@@ -25,7 +23,7 @@ public sealed class ChatWatcher : IFeature
     private readonly ChatDedup _dedup = new(capacity: 256);
     private readonly CooldownTracker _cooldown = new();
     private ChatConfig _config;
-    private List<CompiledRule> _compiledRules;
+    private ChannelMatcher _matcher;
     private CancellationTokenSource? _cts;
 
     public ChatWatcher(
@@ -42,14 +40,14 @@ public sealed class ChatWatcher : IFeature
         _bus = bus;
         _config = config;
         _playerName = playerName;
-        _compiledRules = CompileRules(config.Rules);
+        _matcher = new ChannelMatcher(config.Rules);
     }
 
     public string Id => "chat";
     public string DisplayName => "Chat Watcher";
     public FeatureStatus Status { get; private set; } = FeatureStatus.Idle;
 
-#pragma warning disable CS0067 // StatusChanged wired by App layer in a future task
+#pragma warning disable CS0067
     public event EventHandler<StatusChangedArgs>? StatusChanged;
 #pragma warning restore CS0067
 
@@ -75,7 +73,7 @@ public sealed class ChatWatcher : IFeature
         var newConfig = featureConfig.Deserialize<ChatConfig>();
         if (newConfig is null) return;
         _config = newConfig;
-        _compiledRules = CompileRules(newConfig.Rules);
+        _matcher = new ChannelMatcher(newConfig.Rules);
     }
 
     private async Task CaptureLoopAsync(CancellationToken ct)
@@ -94,7 +92,6 @@ public sealed class ChatWatcher : IFeature
             catch (Exception)
             {
                 // Log and continue — don't let a single tick failure kill the loop.
-                // The watchdog will handle repeated failures at a higher level.
             }
         }
     }
@@ -116,13 +113,8 @@ public sealed class ChatWatcher : IFeature
             preprocessed.Stride,
             ct).ConfigureAwait(false);
 
-        var rules = _compiledRules; // snapshot
+        var matcher = _matcher; // snapshot
 
-        // Build a list of normalized lines, then try matching each line
-        // individually AND concatenated with the next line. OCR frequently
-        // splits a single chat message across two lines (e.g., "[Game] You
-        // received a task to kill Dire" + "Wolf (8)"), so a pattern like
-        // "game.*dire wolf" only matches if we join adjacent lines.
         var normalizedLines = new List<(string normalized, string original)>();
         foreach (var line in ocrResult.Lines)
         {
@@ -137,7 +129,6 @@ public sealed class ChatWatcher : IFeature
         {
             var (normalized, original) = normalizedLines[i];
 
-            // Also build a joined version with the next line for split-message matching
             var joinedNormalized = normalized;
             var joinedOriginal = original;
             if (i + 1 < normalizedLines.Count)
@@ -152,33 +143,26 @@ public sealed class ChatWatcher : IFeature
                 if (_dedup.IsDuplicate(candidate.Item1))
                     continue;
 
-                foreach (var rule in rules)
-                {
-                    if (!rule.Pattern.IsMatch(candidate.Item1))
-                        continue;
+                // Parse the channel from the OCR text, then route to matching rules
+                var parsed = ChatLineParser.Parse(candidate.Item1);
+                var match = matcher.FindMatch(parsed);
+                if (match is null) continue;
 
-                    // Per-rule cooldown: skip if this rule fired too recently
-                    if (!_cooldown.TryFire(rule.Id, TimeSpan.FromSeconds(rule.CooldownSec)))
-                        continue;
+                if (!_cooldown.TryFire(match.Rule.Id, TimeSpan.FromSeconds(match.Rule.CooldownSec)))
+                    continue;
 
-                    var evt = new DetectionEvent(
-                        FeatureId: "chat",
-                        RuleLabel: rule.Label,
-                        MatchedContent: candidate.Item2,
-                        TimestampUtc: DateTimeOffset.UtcNow,
-                        PlayerName: _playerName,
-                        Extras: new Dictionary<string, string>(),
-                        ImageAttachment: null);
+                var evt = new DetectionEvent(
+                    FeatureId: "chat",
+                    RuleLabel: match.Rule.Label,
+                    MatchedContent: candidate.Item2,
+                    TimestampUtc: DateTimeOffset.UtcNow,
+                    PlayerName: _playerName,
+                    Extras: new Dictionary<string, string>(),
+                    ImageAttachment: null);
 
-                    await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
-                    break; // first matching rule wins
-                }
+                await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
+                break;
             }
         }
     }
-
-    private static List<CompiledRule> CompileRules(List<ChatRuleConfig> rules)
-        => rules.Select(r => new CompiledRule(r.Id, r.Label, r.CooldownSec, CompiledPattern.Create(r.Pattern, r.Regex))).ToList();
-
-    private sealed record CompiledRule(string Id, string Label, int CooldownSec, CompiledPattern Pattern);
 }

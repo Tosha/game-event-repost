@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -7,7 +8,6 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using GuildRelay.App.RegionPicker;
 using GuildRelay.Core.Config;
-using GuildRelay.Core.Rules;
 using GuildRelay.Features.Chat;
 
 namespace GuildRelay.App.Config;
@@ -17,6 +17,8 @@ public partial class ChatConfigTab : UserControl
     private CoreHost? _host;
     private RegionConfig _currentRegion = RegionConfig.Empty;
     private bool _loading;
+    private readonly ObservableCollection<StructuredChatRule> _rules = new();
+    private readonly Dictionary<string, CheckBox> _channelChecks = new();
 
     public ChatConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
@@ -35,12 +37,133 @@ public partial class ChatConfigTab : UserControl
         _currentRegion = chat.Region;
         UpdateRegionLabel();
 
-        var ruleLines = chat.Rules.Select(FormatRule);
-        RulesBox.Text = string.Join(Environment.NewLine, ruleLines);
+        // Build channel checkboxes
+        ChannelPanel.Children.Clear();
+        _channelChecks.Clear();
+        foreach (var ch in ChatLineParser.KnownChannelNames)
+        {
+            var cb = new CheckBox { Content = ch, Margin = new Thickness(0, 0, 12, 4) };
+            ChannelPanel.Children.Add(cb);
+            _channelChecks[ch] = cb;
+        }
+
+        // Load rules
+        _rules.Clear();
+        foreach (var r in chat.Rules)
+            _rules.Add(r);
+        RefreshRulesList();
+
+        // Default editor cooldown
+        RuleCooldownBox.Text = chat.DefaultCooldownSec.ToString();
 
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
         if (RuleTemplates.BuiltInNames.Count > 0)
             TemplateCombo.SelectedIndex = 0;
+    }
+
+    private void RefreshRulesList()
+    {
+        RulesList.Items.Clear();
+        foreach (var r in _rules)
+            RulesList.Items.Add(FormatRuleSummary(r));
+    }
+
+    private static string FormatRuleSummary(StructuredChatRule r)
+    {
+        var channels = string.Join(", ", r.Channels);
+        var keywords = r.Keywords.Count == 0 ? "all messages" : $"{r.Keywords.Count} keywords";
+        var mode = r.MatchMode == MatchMode.Regex ? " (regex)" : "";
+        return $"{r.Label}  —  {channels}  —  {keywords}{mode}  —  {r.CooldownSec}s";
+    }
+
+    private void OnRuleSelected(object sender, SelectionChangedEventArgs e)
+    {
+        var idx = RulesList.SelectedIndex;
+        if (idx < 0 || idx >= _rules.Count) return;
+        var rule = _rules[idx];
+
+        RuleLabelBox.Text = rule.Label;
+        KeywordsBox.Text = string.Join(", ", rule.Keywords);
+        RuleCooldownBox.Text = rule.CooldownSec.ToString();
+        ContainsAnyRadio.IsChecked = rule.MatchMode == MatchMode.ContainsAny;
+        RegexRadio.IsChecked = rule.MatchMode == MatchMode.Regex;
+
+        foreach (var (ch, cb) in _channelChecks)
+            cb.IsChecked = rule.Channels.Contains(ch, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private StructuredChatRule BuildRuleFromEditor()
+    {
+        var label = RuleLabelBox.Text.Trim();
+        if (string.IsNullOrEmpty(label)) label = "Untitled";
+
+        var channels = _channelChecks
+            .Where(kv => kv.Value.IsChecked == true)
+            .Select(kv => kv.Key).ToList();
+
+        var keywordsText = KeywordsBox.Text.Trim();
+        var matchMode = RegexRadio.IsChecked == true ? MatchMode.Regex : MatchMode.ContainsAny;
+
+        List<string> keywords;
+        if (matchMode == MatchMode.Regex)
+        {
+            // In regex mode, the entire text is one pattern
+            keywords = string.IsNullOrEmpty(keywordsText)
+                ? new List<string>()
+                : new List<string> { keywordsText };
+        }
+        else
+        {
+            keywords = string.IsNullOrEmpty(keywordsText)
+                ? new List<string>()
+                : keywordsText.Split(',').Select(k => k.Trim()).Where(k => k.Length > 0).ToList();
+        }
+
+        var cooldown = int.TryParse(RuleCooldownBox.Text, out var cd) ? cd : GetDefaultCooldown();
+
+        return new StructuredChatRule(
+            Id: label.ToLowerInvariant().Replace(' ', '_'),
+            Label: label,
+            Channels: channels,
+            Keywords: keywords,
+            MatchMode: matchMode,
+            CooldownSec: cooldown);
+    }
+
+    private void OnAddRule(object sender, RoutedEventArgs e)
+    {
+        var rule = BuildRuleFromEditor();
+        if (rule.Channels.Count == 0)
+        {
+            StatusText.Text = "Select at least one channel.";
+            return;
+        }
+        _rules.Add(rule);
+        RefreshRulesList();
+        StatusText.Text = $"Added rule: {rule.Label}";
+    }
+
+    private void OnUpdateRule(object sender, RoutedEventArgs e)
+    {
+        var idx = RulesList.SelectedIndex;
+        if (idx < 0 || idx >= _rules.Count)
+        {
+            StatusText.Text = "Select a rule to update.";
+            return;
+        }
+        _rules[idx] = BuildRuleFromEditor();
+        RefreshRulesList();
+        RulesList.SelectedIndex = idx;
+        StatusText.Text = "Rule updated.";
+    }
+
+    private void OnRemoveRule(object sender, RoutedEventArgs e)
+    {
+        var idx = RulesList.SelectedIndex;
+        if (idx < 0 || idx >= _rules.Count) return;
+        _rules.RemoveAt(idx);
+        RefreshRulesList();
+        StatusText.Text = "Rule removed.";
     }
 
     private async void OnToggleChanged(object sender, RoutedEventArgs e)
@@ -56,7 +179,6 @@ public partial class ChatConfigTab : UserControl
         if (enabled && !_host.Config.Chat.Region.IsEmpty)
             await _host.Registry.StartAsync("chat", CancellationToken.None);
 
-        // Update tab indicator dot
         var window = Window.GetWindow(this) as ConfigWindow;
         if (window is not null && DataContext is ConfigViewModel vm)
             window.UpdateIndicators(vm);
@@ -74,9 +196,7 @@ public partial class ChatConfigTab : UserControl
             var (resW, resH) = GuildRelay.Platform.Windows.Dpi.DpiHelper.GetPrimaryScreenResolution();
             _currentRegion = new RegionConfig(
                 rect.X, rect.Y, rect.Width, rect.Height,
-                dpi,
-                new ResolutionConfig(resW, resH),
-                "PRIMARY");
+                dpi, new ResolutionConfig(resW, resH), "PRIMARY");
             UpdateRegionLabel();
         }
     }
@@ -93,23 +213,16 @@ public partial class ChatConfigTab : UserControl
         if (TemplateCombo.SelectedItem is not string name) return;
         if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
 
-        var existingRules = ParseRules(RulesBox.Text, GetDefaultCooldown());
-        var newRules = templateRules.Where(r => !existingRules.Any(er => er.Id == r.Id)).ToList();
-
+        var newRules = templateRules.Where(r => !_rules.Any(er => er.Id == r.Id)).ToList();
         if (newRules.Count == 0)
         {
             StatusText.Text = $"Template \"{name}\" rules already present.";
             return;
         }
 
-        var lines = newRules.Select(FormatRule);
-        var block = string.Join(Environment.NewLine, lines);
-
-        var existing = RulesBox.Text.TrimEnd();
-        RulesBox.Text = string.IsNullOrEmpty(existing)
-            ? block
-            : existing + Environment.NewLine + block;
-
+        foreach (var r in newRules)
+            _rules.Add(r);
+        RefreshRulesList();
         StatusText.Text = $"Loaded template: {name} ({newRules.Count} rules added)";
     }
 
@@ -118,16 +231,14 @@ public partial class ChatConfigTab : UserControl
         if (_host is null) return;
         try
         {
-            var defaultCooldown = GetDefaultCooldown();
-            var rules = ParseRules(RulesBox.Text, defaultCooldown);
             var newChat = _host.Config.Chat with
             {
                 Enabled = EnabledToggle.IsChecked ?? false,
                 CaptureIntervalMs = int.TryParse(IntervalBox.Text, out var iv) ? iv : 1000,
                 OcrConfidenceThreshold = double.TryParse(ConfidenceBox.Text, out var ct) ? ct : 0.65,
-                DefaultCooldownSec = defaultCooldown,
+                DefaultCooldownSec = GetDefaultCooldown(),
                 Region = _currentRegion,
-                Rules = rules
+                Rules = _rules.ToList()
             };
             var newConfig = _host.Config with { Chat = newChat };
             _host.UpdateConfig(newConfig);
@@ -155,8 +266,7 @@ public partial class ChatConfigTab : UserControl
             return;
         }
 
-        var rules = ParseRules(RulesBox.Text, GetDefaultCooldown());
-        if (rules.Count == 0)
+        if (_rules.Count == 0)
         {
             TestResultText.Text = "No rules defined. Add rules above first.";
             TestResultText.Foreground = Brushes.Gray;
@@ -164,71 +274,22 @@ public partial class ChatConfigTab : UserControl
         }
 
         var normalized = TextNormalizer.Normalize(message);
+        var parsed = ChatLineParser.Parse(normalized);
+        var matcher = new ChannelMatcher(_rules);
+        var match = matcher.FindMatch(parsed);
 
-        foreach (var rule in rules)
+        if (match is not null)
         {
-            var pattern = CompiledPattern.Create(rule.Pattern, rule.Regex);
-            if (pattern.IsMatch(normalized))
-            {
-                TestResultText.Text = $"MATCH: rule \"{rule.Label}\" matched.  Normalized: \"{normalized}\"";
-                TestResultText.Foreground = Brushes.LimeGreen;
-                return;
-            }
+            TestResultText.Text = $"MATCH: rule \"{match.Rule.Label}\" on channel [{parsed.Channel}].  Body: \"{parsed.Body}\"";
+            TestResultText.Foreground = Brushes.LimeGreen;
         }
-
-        TestResultText.Text = $"No match.  Normalized: \"{normalized}\"";
-        TestResultText.Foreground = Brushes.OrangeRed;
+        else
+        {
+            TestResultText.Text = $"No match.  Channel: [{parsed.Channel ?? "none"}]  Body: \"{parsed.Body}\"";
+            TestResultText.Foreground = Brushes.OrangeRed;
+        }
     }
 
     private int GetDefaultCooldown()
         => int.TryParse(CooldownBox.Text, out var cd) ? cd : 600;
-
-    /// <summary>
-    /// Format: label|pattern|regex  or  label|pattern|regex|cooldown
-    /// Only includes the cooldown field if it differs from the default.
-    /// </summary>
-    private static string FormatRule(ChatRuleConfig r)
-    {
-        var type = r.Regex ? "regex" : "literal";
-        // Always show cooldown so the user can see/edit it
-        return $"{r.Label}|{r.Pattern}|{type}|{r.CooldownSec}";
-    }
-
-    /// <summary>
-    /// Parses rules. Format: label|pattern|type  or  label|pattern|type|cooldown-sec.
-    /// Split limited to 4 parts so | inside regex patterns is preserved.
-    /// </summary>
-    private static List<ChatRuleConfig> ParseRules(string text, int defaultCooldown)
-    {
-        var rules = new List<ChatRuleConfig>();
-        foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var parts = line.Trim().Split('|', 4);
-            if (parts.Length < 2) continue;
-            var label = parts[0].Trim();
-            var pattern = parts[1].Trim();
-
-            // Part 3 could be "regex", "literal", or a number (cooldown with type defaulting to literal)
-            var isRegex = false;
-            var cooldown = defaultCooldown;
-
-            if (parts.Length >= 3)
-            {
-                var typePart = parts[2].Trim();
-                isRegex = typePart.Equals("regex", StringComparison.OrdinalIgnoreCase);
-            }
-            if (parts.Length >= 4 && int.TryParse(parts[3].Trim(), out var cd))
-            {
-                cooldown = cd;
-            }
-
-            rules.Add(new ChatRuleConfig(
-                Id: label.ToLowerInvariant().Replace(' ', '_'),
-                Label: label,
-                Pattern: pattern,
-                Regex: isRegex,
-                CooldownSec: cooldown));
-        }
-        return rules;
-    }
 }

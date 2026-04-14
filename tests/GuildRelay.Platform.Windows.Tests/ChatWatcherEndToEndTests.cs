@@ -9,9 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using GuildRelay.Core.Capture;
+using GuildRelay.Core.Config;
 using GuildRelay.Core.Ocr;
 using GuildRelay.Core.Preprocessing;
-using GuildRelay.Core.Rules;
 using GuildRelay.Features.Chat;
 using GuildRelay.Features.Chat.Preprocessing;
 using GuildRelay.Platform.Windows.Ocr;
@@ -22,9 +22,8 @@ using Xunit.Abstractions;
 namespace GuildRelay.Platform.Windows.Tests;
 
 /// <summary>
-/// End-to-end tests: real screenshot → OCR → normalize → rule match.
-/// These prove (or disprove) that the full Chat Watcher pipeline can
-/// detect game events from actual MO2 chat captures.
+/// End-to-end tests: real screenshot → OCR → normalize → parse channel → match rule.
+/// Uses the new structured ChatLineParser + ChannelMatcher pipeline.
 /// </summary>
 public class ChatWatcherEndToEndTests
 {
@@ -84,33 +83,30 @@ public class ChatWatcherEndToEndTests
         return result.Lines.ToList();
     }
 
-    // ── First: prove the normalizer bug ─────────────────────────────
-
     [Fact]
     public void NormalizerPreservesBrackets_FixedBug()
     {
-        // Brackets are meaningful in MO2 chat and must be preserved.
         var input = "[20:27:33][Game] You received a task to kill Dire Wolf (8)";
         var normalized = TextNormalizer.Normalize(input);
 
         _output.WriteLine($"Input:      \"{input}\"");
         _output.WriteLine($"Normalized: \"{normalized}\"");
 
-        normalized.Should().Contain("[game]", "brackets are now preserved");
+        normalized.Should().Contain("[game]", "brackets are preserved");
 
-        // Pattern with escaped brackets should match
-        var pattern = CompiledPattern.Create(@"\[game\].*dire wolf", isRegex: true);
-        pattern.IsMatch(normalized).Should().BeTrue();
+        // Now test with the new structured pipeline
+        var parsed = ChatLineParser.Parse(normalized);
+        parsed.Channel.Should().Be("Game");
+        parsed.Body.Should().Contain("dire wolf");
     }
 
-    // ── End-to-end: OCR → normalize → match on real screenshots ─────
-
     /// <summary>
-    /// Helper that simulates what ChatWatcher does: normalize each line,
-    /// try matching single lines and adjacent-line pairs.
+    /// Simulates ChatWatcher's line-joining + channel matching on OCR output.
     /// </summary>
-    private List<string> MatchWithLineJoining(List<OcrLine> lines, CompiledPattern pattern)
+    private List<string> MatchWithChannelMatcher(List<OcrLine> lines, StructuredChatRule rule)
     {
+        var matcher = new ChannelMatcher(new[] { rule });
+
         var normalizedLines = new List<(string normalized, string original)>();
         foreach (var line in lines)
         {
@@ -128,19 +124,23 @@ public class ChatWatcherEndToEndTests
             var (norm, orig) = normalizedLines[i];
 
             // Try single line
-            if (pattern.IsMatch(norm))
+            var parsed = ChatLineParser.Parse(norm);
+            var match = matcher.FindMatch(parsed);
+            if (match is not null)
             {
                 _output.WriteLine($"  MATCH (single): \"{orig}\"");
                 matches.Add(orig);
                 continue;
             }
 
-            // Try joined with next line (OCR splits long messages)
+            // Try joined with next line
             if (i + 1 < normalizedLines.Count)
             {
                 var joined = norm + " " + normalizedLines[i + 1].normalized;
                 var joinedOrig = orig + " " + normalizedLines[i + 1].original;
-                if (pattern.IsMatch(joined))
+                var parsedJoined = ChatLineParser.Parse(joined);
+                var matchJoined = matcher.FindMatch(parsedJoined);
+                if (matchJoined is not null)
                 {
                     _output.WriteLine($"  MATCH (joined): \"{joinedOrig}\"");
                     matches.Add(joinedOrig);
@@ -160,10 +160,12 @@ public class ChatWatcherEndToEndTests
         foreach (var line in lines)
             _output.WriteLine($"  \"{line.Text}\"");
 
-        // Pattern: [Game] followed by anything, then Sylvan Sanctum
-        // In regex, \[ matches literal bracket. Case-insensitive.
-        var pattern = CompiledPattern.Create(@"\[game\].*sylvan sanctum", isRegex: true);
-        var matches = MatchWithLineJoining(lines, pattern);
+        var rule = new StructuredChatRule("r1", "Game Events",
+            new List<string> { "Game" },
+            new List<string> { "Sylvan Sanctum" },
+            MatchMode.ContainsAny);
+
+        var matches = MatchWithChannelMatcher(lines, rule);
 
         _output.WriteLine($"\nMatches found: {matches.Count}");
         matches.Should().NotBeEmpty("should find the Sylvan Sanctum game event");
@@ -179,8 +181,12 @@ public class ChatWatcherEndToEndTests
         foreach (var line in lines)
             _output.WriteLine($"  \"{line.Text}\"");
 
-        var pattern = CompiledPattern.Create(@"\[game\].*dire wolf", isRegex: true);
-        var matches = MatchWithLineJoining(lines, pattern);
+        var rule = new StructuredChatRule("r1", "Game Events",
+            new List<string> { "Game" },
+            new List<string> { "Dire Wolf" },
+            MatchMode.ContainsAny);
+
+        var matches = MatchWithChannelMatcher(lines, rule);
 
         _output.WriteLine($"\nMatches found: {matches.Count}");
         matches.Should().NotBeEmpty("should find the Dire Wolf task event");

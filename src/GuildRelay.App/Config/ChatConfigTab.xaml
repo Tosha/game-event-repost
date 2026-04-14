@@ -26,24 +26,54 @@
             <TextBlock Text="Default rule cooldown (seconds)" FontWeight="SemiBold"/>
             <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,12"/>
 
+            <!-- Rule templates -->
             <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
                 <ComboBox x:Name="TemplateCombo" Width="220" Margin="0,0,8,0"/>
                 <ui:Button Content="Load Template" Click="OnLoadTemplate"/>
             </StackPanel>
 
-            <TextBlock Text="Rules (one per line: label|pattern|regex  or  label|pattern|regex|cooldown-sec)" FontWeight="SemiBold"/>
-            <TextBox x:Name="RulesBox" AcceptsReturn="True" Height="100"
-                     VerticalScrollBarVisibility="Auto" Margin="0,4,0,8"
-                     FontFamily="Consolas" TextWrapping="Wrap"/>
+            <!-- Active rules list -->
+            <TextBlock Text="Active rules" FontWeight="SemiBold"/>
+            <ListBox x:Name="RulesList" Height="100" Margin="0,4,0,8"
+                     SelectionChanged="OnRuleSelected"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <ui:Button Content="Remove Selected" Click="OnRemoveRule" Margin="0,0,8,0"/>
+            </StackPanel>
+
+            <!-- Rule editor -->
+            <TextBlock Text="Rule editor" FontWeight="SemiBold" FontSize="13"/>
+            <TextBlock Text="Label" Margin="0,4,0,0"/>
+            <TextBox x:Name="RuleLabelBox" Width="300" HorizontalAlignment="Left" Margin="0,2,0,4"/>
+
+            <TextBlock Text="Channels" Margin="0,4,0,0"/>
+            <WrapPanel x:Name="ChannelPanel" Margin="0,2,0,4"/>
+
+            <TextBlock Text="Keywords (comma-separated)" Margin="0,4,0,0"/>
+            <TextBox x:Name="KeywordsBox" Height="50" Margin="0,2,0,4"
+                     TextWrapping="Wrap" AcceptsReturn="False" FontFamily="Consolas"
+                     VerticalScrollBarVisibility="Auto"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                <RadioButton x:Name="ContainsAnyRadio" Content="Contains any keyword" IsChecked="True" Margin="0,0,16,0"/>
+                <RadioButton x:Name="RegexRadio" Content="Regex"/>
+            </StackPanel>
+
+            <TextBlock Text="Cooldown (seconds)" Margin="0,4,0,0"/>
+            <TextBox x:Name="RuleCooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,2,0,8"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <ui:Button Content="Add Rule" Click="OnAddRule" Appearance="Primary" Margin="0,0,8,0"/>
+                <ui:Button Content="Update Selected" Click="OnUpdateRule" Margin="0,0,8,0"/>
+            </StackPanel>
 
             <ui:Button Content="Save Chat Settings" Click="OnSave" Appearance="Primary"
                        HorizontalAlignment="Left"/>
 
+            <!-- Test message -->
             <TextBlock Text="Test a message against your rules" FontWeight="SemiBold" Margin="0,16,0,0"/>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-                <TextBox x:Name="TestMessageBox" Width="350" Margin="0,0,8,0"
-                         FontFamily="Consolas"/>
+                <TextBox x:Name="TestMessageBox" Width="350" Margin="0,0,8,0" FontFamily="Consolas"/>
                 <ui:Button Content="Test" Click="OnTestMessage"/>
             </StackPanel>
             <TextBlock x:Name="TestResultText" Margin="0,4,0,0"
