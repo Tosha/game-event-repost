@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using GuildRelay.App.Exceptions;
 using GuildRelay.App.Tray;
@@ -11,15 +12,27 @@ public partial class App : Application
 
     private async void OnStartup(object sender, StartupEventArgs e)
     {
-        _host = await CoreHost.CreateAsync().ConfigureAwait(true);
-        GlobalExceptionHandler.Hook(_host.Logger);
+        try
+        {
+            _host = await CoreHost.CreateAsync().ConfigureAwait(true);
+            GlobalExceptionHandler.Hook(_host.Logger);
 
-        _trayView = new TrayView();
-        _trayView.DataContext = new TrayViewModel(_host, OpenConfig, Quit);
-        _trayView.Show();
+            _trayView = new TrayView();
+            _trayView.DataContext = new TrayViewModel(_host, OpenConfig, Quit);
+            _trayView.Show();
 
-        if (!_host.Secrets.HasWebhookUrl)
-            OpenConfig();
+            if (!_host.Secrets.HasWebhookUrl)
+                OpenConfig();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"GuildRelay failed to start:\n\n{ex.Message}\n\n{ex.GetType().Name}",
+                "GuildRelay — Startup Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
     }
 
     private void OpenConfig()
