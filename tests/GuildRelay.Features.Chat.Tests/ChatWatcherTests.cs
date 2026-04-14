@@ -77,7 +77,7 @@ public class ChatWatcherTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await Task.Delay(500);
         await watcher.StopAsync();
         bus.Complete();
 
@@ -145,7 +145,7 @@ public class ChatWatcherTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await Task.Delay(500);
         await watcher.StopAsync();
         bus.Complete();
 
