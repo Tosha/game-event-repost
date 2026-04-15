@@ -86,6 +86,7 @@ public sealed class ChatWatcher : IFeature
     public Task StopAsync()
     {
         _cts?.Cancel();
+        _deferredTrailing = null;
         Status = FeatureStatus.Idle;
         return Task.CompletedTask;
     }
@@ -175,8 +176,14 @@ public sealed class ChatWatcher : IFeature
                 $"DEFERRED [rows {newBuffer.StartRow}-{newBuffer.EndRow}]: " +
                 $"[{newBuffer.Channel ?? "—"}] {newBuffer.OriginalText}");
 
-        // Track which emitted messages originated from the deferred buffer
-        // (first toEmit element, when previous buffer was not resolved-by-completed).
+        // Track which emitted messages originated from the deferred buffer so we can
+        // distinguish EMITTED-DEFERRED from EMITTED in the debug log. This relies on
+        // a deliberate contract from DeferredTrailing.Resolve: when it could not find
+        // a grown version of the previous trailing in current.Completed, it inserts
+        // the previousTrailing *by reference* at toEmit[0]. That reference identity
+        // is the only reliable signal that toEmit[0] is the freshly-unbuffered version
+        // versus a normally-completed message. If DeferredTrailing.Resolve is ever
+        // changed to copy/clone the message, update this check in lockstep.
         var previousWasEmittedFromBuffer =
             _deferredTrailing is not null &&
             toEmit.Count > 0 &&
@@ -190,7 +197,10 @@ public sealed class ChatWatcher : IFeature
             var fromBuffer = (i == 0) && previousWasEmittedFromBuffer;
             var prefix = fromBuffer ? "EMITTED-DEFERRED" : "EMITTED";
 
-            var dedupKey = $"{msg.Channel}|{msg.PlayerName}|{msg.Timestamp}|{msg.Body}";
+            // U+001F (Unit Separator) cannot appear in OCR output or user text, so
+            // it is safe to use as a field delimiter in the dedup key.
+            const string sep = "\x1F";
+            var dedupKey = $"{msg.Channel}{sep}{msg.PlayerName}{sep}{msg.Timestamp}{sep}{msg.Body}";
             if (_dedup.IsDuplicate(dedupKey))
             {
                 debug?.MatchResults.Add(
