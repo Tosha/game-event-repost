@@ -110,4 +110,28 @@ public class ChatLineParserTests
         result.PlayerName.Should().Be("stormbrew");
         result.Body.Should().Be("theyl just remake");
     }
+
+    [Fact]
+    public void IsHeaderRecognizesChannelOnly()
+    {
+        ChatLineParser.IsHeader("[Nave] [Stormbrew] inc north").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsHeaderRecognizesTimestampPlusChannel()
+    {
+        ChatLineParser.IsHeader("[21:02:15][Game] A large band of Profiteers").Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsHeaderRejectsPlainContinuation()
+    {
+        ChatLineParser.IsHeader("Plains of Meduli!").Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsHeaderRejectsUnknownBracketTag()
+    {
+        ChatLineParser.IsHeader("[Unknown] some text").Should().BeFalse();
+    }
 }
