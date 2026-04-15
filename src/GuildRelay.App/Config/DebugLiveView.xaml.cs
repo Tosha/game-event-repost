@@ -68,10 +68,20 @@ public partial class DebugLiveView : Wpf.Ui.Controls.FluentWindow
         var sb = new StringBuilder();
         for (int i = 0; i < info.OcrLines.Count; i++)
         {
+            var role = i < info.LineRoles.Count ? info.LineRoles[i] : "?";
             var channel = i < info.ParsedChannels.Count ? info.ParsedChannels[i] : "?";
             var normalized = i < info.NormalizedLines.Count ? info.NormalizedLines[i] : "";
-            sb.AppendLine($"[{channel}]  OCR: \"{info.OcrLines[i]}\"");
-            sb.AppendLine($"       Norm: \"{normalized}\"");
+
+            string prefix = role switch
+            {
+                "HEADER" => $"[{channel}]  ",
+                "CONT"   => "   \u21B3    ",   // ↳
+                "SKIP"   => "(skip)  ",
+                _        => "        "
+            };
+
+            sb.AppendLine($"{prefix}OCR: \"{info.OcrLines[i]}\"");
+            sb.AppendLine($"         Norm: \"{normalized}\"");
         }
         if (info.OcrLines.Count == 0)
             sb.AppendLine("(no text detected)");
