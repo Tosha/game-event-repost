@@ -81,7 +81,7 @@ public partial class DebugLiveView : Wpf.Ui.Controls.FluentWindow
             };
 
             sb.AppendLine($"{prefix}OCR: \"{info.OcrLines[i]}\"");
-            sb.AppendLine($"         Norm: \"{normalized}\"");
+            sb.AppendLine($"{new string(' ', prefix.Length)}Norm: \"{normalized}\"");
         }
         if (info.OcrLines.Count == 0)
             sb.AppendLine("(no text detected)");
