@@ -5,7 +5,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="12">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <ui:ToggleSwitch x:Name="EnabledToggle" IsChecked="False" Checked="OnToggleChanged" Unchecked="OnToggleChanged"/>
+                <ui:ToggleSwitch x:Name="EnabledToggle" IsChecked="False" Checked="OnEnabledChanged" Unchecked="OnEnabledChanged"/>
                 <TextBlock Text="Status Watcher" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,0"/>
             </StackPanel>
 
@@ -18,20 +18,18 @@
             </StackPanel>
 
             <TextBlock Text="Capture interval (seconds)" FontWeight="SemiBold"/>
-            <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+            <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"
+                     TextChanged="OnFieldChanged"/>
 
             <TextBlock Text="Debounce samples (consecutive confirmations)" FontWeight="SemiBold"/>
-            <TextBox x:Name="DebounceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+            <TextBox x:Name="DebounceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"
+                     TextChanged="OnFieldChanged"/>
 
             <TextBlock Text="Disconnect phrases (one per line: label|pattern|regex)" FontWeight="SemiBold"/>
             <TextBox x:Name="PatternsBox" AcceptsReturn="True" Height="80"
                      VerticalScrollBarVisibility="Auto" Margin="0,4,0,8"
-                     FontFamily="Consolas" TextWrapping="Wrap"/>
-
-            <ui:Button Content="Save Status Settings" Click="OnSave" Appearance="Primary"
-                       HorizontalAlignment="Left"/>
-            <TextBlock x:Name="StatusText" Margin="0,8,0,0"
-                       Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
+                     FontFamily="Consolas" TextWrapping="Wrap"
+                     TextChanged="OnFieldChanged"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
