@@ -8,6 +8,12 @@ namespace GuildRelay.Features.Chat;
 /// </summary>
 public sealed record OcrLineInput(string Normalized, string Original, float Confidence);
 
+/// <summary>
+/// Output of one tick's assembly. <see cref="Completed"/> holds messages whose
+/// next header has been seen and are ready for matching/dedup. <see cref="Trailing"/>
+/// is the last message on screen without a terminator; it must be carried across
+/// ticks by <c>DeferredTrailing</c>.
+/// </summary>
 public sealed record AssemblyResult(
     IReadOnlyList<AssembledMessage> Completed,
     AssembledMessage? Trailing);
@@ -25,6 +31,7 @@ public static class ChatMessageAssembler
         {
             var line = lines[i];
             var belowThreshold = line.Confidence < confidenceThreshold;
+            var isHeader = ChatLineParser.IsHeader(line.Normalized);
 
             if (belowThreshold)
             {
@@ -33,18 +40,13 @@ public static class ChatMessageAssembler
                 // message. If it looks like a header, close any open message (but do
                 // NOT start a new one from this garbled header). If it looks like
                 // a continuation, skip it silently and leave the open message alive.
-                if (ChatLineParser.IsHeader(line.Normalized))
+                if (isHeader && open is not null)
                 {
-                    if (open is not null)
-                    {
-                        completed.Add(open.ToAssembled());
-                        open = null;
-                    }
+                    completed.Add(open.ToAssembled());
+                    open = null;
                 }
                 continue;
             }
-
-            var isHeader = ChatLineParser.IsHeader(line.Normalized);
 
             if (isHeader)
             {
