@@ -3,22 +3,25 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:GuildRelay.App.Config"
-        Title="GuildRelay — Config" Width="600" Height="560"
+        Title="GuildRelay — Config" Width="600" Height="620"
         WindowStartupLocation="CenterScreen"
-        ExtendsContentIntoTitleBar="True">
+        ExtendsContentIntoTitleBar="True"
+        Closing="OnClosing"
+        PreviewKeyDown="OnPreviewKeyDown">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="GuildRelay — Config"/>
 
-        <TabControl Grid.Row="1" Margin="12,4,12,12" x:Name="MainTabs">
+        <TabControl Grid.Row="1" Margin="12,4,12,0" x:Name="MainTabs">
             <TabItem x:Name="ChatTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="ChatDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ChatDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Chat Watcher"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -27,7 +30,7 @@
             <TabItem x:Name="AudioTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="AudioDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="AudioDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Audio Watcher"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -36,15 +39,16 @@
             <TabItem x:Name="StatusTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="StatusDot" Text="" Foreground="#44FF44" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StatusDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Status Watcher"/>
                     </StackPanel>
                 </TabItem.Header>
                 <local:StatusConfigTab x:Name="StatusTab"/>
             </TabItem>
-            <TabItem>
+            <TabItem x:Name="SettingsTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="SettingsDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <ui:SymbolIcon Symbol="Settings24" Margin="0,0,6,0" FontSize="14"/>
                         <TextBlock Text="Settings"/>
                     </StackPanel>
@@ -52,31 +56,43 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"/>
-                        <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12"/>
+                        <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12" PasswordChanged="OnWebhookChanged"/>
                         <TextBlock Text="Player name" FontWeight="SemiBold"/>
-                        <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12"/>
+                        <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12" TextChanged="OnPlayerNameChanged"/>
                         <StackPanel Orientation="Horizontal">
                             <ui:Button Content="Test webhook" Click="OnTestWebhookClick" Appearance="Primary" Margin="0,0,8,0"/>
-                            <ui:Button Content="Save"         Click="OnSaveClick"        Margin="0,0,8,0"/>
-                            <ui:Button Content="Close"        Click="OnCloseClick"/>
                         </StackPanel>
-                        <TextBlock x:Name="StatusText" Margin="0,12,0,0" Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
 
                         <Separator Margin="0,16,0,12"/>
 
                         <TextBlock Text="Chat Watcher" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"/>
 
                         <TextBlock Text="Capture interval (seconds)" FontWeight="SemiBold"/>
-                        <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                        <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8" TextChanged="OnChatAdvancedChanged"/>
 
                         <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"/>
-                        <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8"/>
+                        <TextBox x:Name="ConfidenceBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8" TextChanged="OnChatAdvancedChanged"/>
 
                         <TextBlock Text="Default rule cooldown (seconds)" FontWeight="SemiBold"/>
-                        <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+                        <TextBox x:Name="CooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,4" TextChanged="OnChatAdvancedChanged"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
         </TabControl>
+
+        <!-- Sticky footer bar -->
+        <Border Grid.Row="2" BorderThickness="0,1,0,0"
+                BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
+                Background="{ui:ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+                Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ui:Button x:Name="RevertButton" Content="Revert" Click="OnRevertClick" Margin="0,0,8,0" IsEnabled="False"/>
+                    <ui:Button x:Name="SaveButton"   Content="Save"   Click="OnSaveClick"   Appearance="Primary" IsEnabled="False"/>
+                </StackPanel>
+                <TextBlock x:Name="FooterStatusText" VerticalAlignment="Center"
+                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"/>
+            </DockPanel>
+        </Border>
     </Grid>
 </ui:FluentWindow>
