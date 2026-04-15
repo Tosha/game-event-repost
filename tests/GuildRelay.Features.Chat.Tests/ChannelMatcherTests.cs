@@ -113,4 +113,68 @@ public class ChannelMatcherTests
 
         matcher.FindMatch(parsed).Should().BeNull();
     }
+
+    [Fact]
+    public void EmptyChannelsRuleMatchesAnyChannel()
+    {
+        var rule = new StructuredChatRule("r1", "Wildcard",
+            new List<string>(),                       // no channels = wildcard
+            new List<string> { "hello" },
+            MatchMode.ContainsAny);
+        var matcher = new ChannelMatcher(new[] { rule });
+
+        var parsed = new ParsedChatLine(null, "Nave", "Tosh", "hello world");
+
+        var match = matcher.FindMatch(parsed);
+        match.Should().NotBeNull();
+        match!.Rule.Id.Should().Be("r1");
+    }
+
+    [Fact]
+    public void EmptyChannelsRuleStillRequiresKeywordMatch()
+    {
+        var rule = new StructuredChatRule("r1", "Wildcard",
+            new List<string>(),
+            new List<string> { "never" },
+            MatchMode.ContainsAny);
+        var matcher = new ChannelMatcher(new[] { rule });
+
+        var parsed = new ParsedChatLine(null, "Nave", "Tosh", "hello world");
+
+        matcher.FindMatch(parsed).Should().BeNull();
+    }
+
+    [Fact]
+    public void EmptyChannelsAndEmptyKeywordsMatchesEveryChannel()
+    {
+        var rule = new StructuredChatRule("r1", "MatchAll",
+            new List<string>(),
+            new List<string>(),
+            MatchMode.ContainsAny);
+        var matcher = new ChannelMatcher(new[] { rule });
+
+        var parsed = new ParsedChatLine(null, "Game", null, "anything goes here");
+
+        matcher.FindMatch(parsed).Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ChannelSpecificRuleWinsOverWildcard()
+    {
+        var specific = new StructuredChatRule("specific", "NaveOnly",
+            new List<string> { "Nave" },
+            new List<string> { "x" },
+            MatchMode.ContainsAny);
+        var wildcard = new StructuredChatRule("wild", "Wildcard",
+            new List<string>(),
+            new List<string> { "x" },
+            MatchMode.ContainsAny);
+        var matcher = new ChannelMatcher(new[] { specific, wildcard });
+
+        var parsed = new ParsedChatLine(null, "Nave", "Tosh", "x");
+
+        var match = matcher.FindMatch(parsed);
+        match.Should().NotBeNull();
+        match!.Rule.Id.Should().Be("specific");
+    }
 }

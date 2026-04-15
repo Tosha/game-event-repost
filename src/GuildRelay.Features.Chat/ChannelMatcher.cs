@@ -11,13 +11,21 @@ public sealed record ChannelMatchResult(StructuredChatRule Rule);
 public sealed class ChannelMatcher
 {
     private readonly Dictionary<string, List<CompiledStructuredRule>> _byChannel;
+    private readonly List<CompiledStructuredRule> _wildcard;
 
     public ChannelMatcher(IEnumerable<StructuredChatRule> rules)
     {
         _byChannel = new Dictionary<string, List<CompiledStructuredRule>>(StringComparer.OrdinalIgnoreCase);
+        _wildcard = new List<CompiledStructuredRule>();
+
         foreach (var rule in rules)
         {
             var compiled = new CompiledStructuredRule(rule);
+            if (rule.Channels.Count == 0)
+            {
+                _wildcard.Add(compiled);
+                continue;
+            }
             foreach (var ch in rule.Channels)
             {
                 if (!_byChannel.TryGetValue(ch, out var list))
@@ -33,13 +41,22 @@ public sealed class ChannelMatcher
     public ChannelMatchResult? FindMatch(ParsedChatLine parsed)
     {
         if (parsed.Channel is null) return null;
-        if (!_byChannel.TryGetValue(parsed.Channel, out var candidates)) return null;
 
-        foreach (var compiled in candidates)
+        if (_byChannel.TryGetValue(parsed.Channel, out var candidates))
+        {
+            foreach (var compiled in candidates)
+            {
+                if (compiled.Matches(parsed.Body))
+                    return new ChannelMatchResult(compiled.Rule);
+            }
+        }
+
+        foreach (var compiled in _wildcard)
         {
             if (compiled.Matches(parsed.Body))
                 return new ChannelMatchResult(compiled.Rule);
         }
+
         return null;
     }
 

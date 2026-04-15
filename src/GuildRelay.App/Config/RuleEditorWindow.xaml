@@ -1,0 +1,49 @@
+<ui:FluentWindow x:Class="GuildRelay.App.Config.RuleEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="Add Rule" Width="500" Height="520"
+        WindowStartupLocation="CenterOwner"
+        ExtendsContentIntoTitleBar="True"
+        ShowInTaskbar="False">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" x:Name="TitleBarControl" Title="Add Rule"/>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+                <TextBlock Text="Label" FontWeight="SemiBold"/>
+                <TextBox x:Name="RuleLabelBox" Width="320" HorizontalAlignment="Left" Margin="0,4,0,12"/>
+
+                <TextBlock Text="Channels" FontWeight="SemiBold"/>
+                <WrapPanel x:Name="ChannelPanel" Margin="0,4,0,4"/>
+                <TextBlock x:Name="WildcardHint"
+                           Text="No channels selected → match all channels"
+                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                           Margin="0,0,0,12" Visibility="Collapsed"/>
+
+                <TextBlock Text="Keywords (comma-separated for ContainsAny, single regex for Regex)" FontWeight="SemiBold"/>
+                <TextBox x:Name="KeywordsBox" Height="60" Margin="0,4,0,8"
+                         TextWrapping="Wrap" AcceptsReturn="False" FontFamily="Consolas"
+                         VerticalScrollBarVisibility="Auto"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                    <RadioButton x:Name="ContainsAnyRadio" Content="Contains any keyword" IsChecked="True" Margin="0,0,16,0"/>
+                    <RadioButton x:Name="RegexRadio" Content="Regex"/>
+                </StackPanel>
+
+                <TextBlock Text="Cooldown (seconds)" FontWeight="SemiBold"/>
+                <TextBox x:Name="RuleCooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,16"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Save"   Click="OnSaveClick"   Appearance="Primary" Margin="0,0,8,0" IsDefault="True"/>
+                    <ui:Button Content="Cancel" Click="OnCancelClick" IsCancel="True"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</ui:FluentWindow>

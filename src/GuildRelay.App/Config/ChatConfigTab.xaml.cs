@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using GuildRelay.App.RegionPicker;
 using GuildRelay.Core.Config;
@@ -18,7 +19,6 @@ public partial class ChatConfigTab : UserControl
     private RegionConfig _currentRegion = RegionConfig.Empty;
     private bool _loading;
     private readonly ObservableCollection<StructuredChatRule> _rules = new();
-    private readonly Dictionary<string, CheckBox> _channelChecks = new();
     private DebugLiveView? _debugWindow;
 
     public ChatConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
@@ -35,24 +35,11 @@ public partial class ChatConfigTab : UserControl
         _currentRegion = chat.Region;
         UpdateRegionLabel();
 
-        // Build channel checkboxes
-        ChannelPanel.Children.Clear();
-        _channelChecks.Clear();
-        foreach (var ch in ChatLineParser.KnownChannelNames)
-        {
-            var cb = new CheckBox { Content = ch, Margin = new Thickness(0, 0, 12, 4) };
-            ChannelPanel.Children.Add(cb);
-            _channelChecks[ch] = cb;
-        }
-
         // Load rules
         _rules.Clear();
         foreach (var r in chat.Rules)
             _rules.Add(r);
         RefreshRulesList();
-
-        // Default editor cooldown
-        RuleCooldownBox.Text = chat.DefaultCooldownSec.ToString();
 
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
         if (RuleTemplates.BuiltInNames.Count > 0)
@@ -64,104 +51,69 @@ public partial class ChatConfigTab : UserControl
         RulesList.Items.Clear();
         foreach (var r in _rules)
             RulesList.Items.Add(FormatRuleSummary(r));
+        UpdateActionButtons();
     }
 
     private static string FormatRuleSummary(StructuredChatRule r)
     {
-        var channels = string.Join(", ", r.Channels);
+        var channels = r.Channels.Count == 0
+            ? "all channels"
+            : string.Join(", ", r.Channels);
         var keywords = r.Keywords.Count == 0 ? "all messages" : $"{r.Keywords.Count} keywords";
         var mode = r.MatchMode == MatchMode.Regex ? " (regex)" : "";
         return $"{r.Label}  —  {channels}  —  {keywords}{mode}  —  {r.CooldownSec}s";
     }
 
-    private void OnRuleSelected(object sender, SelectionChangedEventArgs e)
+    private void UpdateActionButtons()
     {
-        var idx = RulesList.SelectedIndex;
-        if (idx < 0 || idx >= _rules.Count) return;
-        var rule = _rules[idx];
-
-        RuleLabelBox.Text = rule.Label;
-        KeywordsBox.Text = string.Join(", ", rule.Keywords);
-        RuleCooldownBox.Text = rule.CooldownSec.ToString();
-        ContainsAnyRadio.IsChecked = rule.MatchMode == MatchMode.ContainsAny;
-        RegexRadio.IsChecked = rule.MatchMode == MatchMode.Regex;
-
-        foreach (var (ch, cb) in _channelChecks)
-            cb.IsChecked = rule.Channels.Contains(ch, StringComparer.OrdinalIgnoreCase);
+        bool hasSelection = RulesList.SelectedIndex >= 0;
+        EditRuleButton.IsEnabled = hasSelection;
+        RemoveRuleButton.IsEnabled = hasSelection;
     }
 
-    private StructuredChatRule BuildRuleFromEditor()
+    private void OnRulesListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        => UpdateActionButtons();
+
+    private void OnRulesListDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        var label = RuleLabelBox.Text.Trim();
-        if (string.IsNullOrEmpty(label)) label = "Untitled";
-
-        var channels = _channelChecks
-            .Where(kv => kv.Value.IsChecked == true)
-            .Select(kv => kv.Key).ToList();
-
-        var keywordsText = KeywordsBox.Text.Trim();
-        var matchMode = RegexRadio.IsChecked == true ? MatchMode.Regex : MatchMode.ContainsAny;
-
-        List<string> keywords;
-        if (matchMode == MatchMode.Regex)
-        {
-            // In regex mode, the entire text is one pattern
-            keywords = string.IsNullOrEmpty(keywordsText)
-                ? new List<string>()
-                : new List<string> { keywordsText };
-        }
-        else
-        {
-            keywords = string.IsNullOrEmpty(keywordsText)
-                ? new List<string>()
-                : keywordsText.Split(',').Select(k => k.Trim()).Where(k => k.Length > 0).ToList();
-        }
-
-        var cooldown = int.TryParse(RuleCooldownBox.Text, out var cd) ? cd : GetDefaultCooldown();
-
-        return new StructuredChatRule(
-            Id: label.ToLowerInvariant().Replace(' ', '_'),
-            Label: label,
-            Channels: channels,
-            Keywords: keywords,
-            MatchMode: matchMode,
-            CooldownSec: cooldown);
+        if (RulesList.SelectedIndex >= 0)
+            OnEditRule(sender, e);
     }
 
     private void OnAddRule(object sender, RoutedEventArgs e)
     {
-        var rule = BuildRuleFromEditor();
-        if (rule.Channels.Count == 0)
-        {
-            StatusText.Text = "Select at least one channel.";
-            return;
-        }
+        if (_host is null) return;
+        var window = Window.GetWindow(this)!;
+        var rule = RuleEditorWindow.Show(window, existing: null, _host.Config.Chat.DefaultCooldownSec);
+        if (rule is null) return;
         _rules.Add(rule);
         RefreshRulesList();
         StatusText.Text = $"Added rule: {rule.Label}";
     }
 
-    private void OnUpdateRule(object sender, RoutedEventArgs e)
+    private void OnEditRule(object sender, RoutedEventArgs e)
     {
+        if (_host is null) return;
         var idx = RulesList.SelectedIndex;
-        if (idx < 0 || idx >= _rules.Count)
-        {
-            StatusText.Text = "Select a rule to update.";
-            return;
-        }
-        _rules[idx] = BuildRuleFromEditor();
+        if (idx < 0 || idx >= _rules.Count) return;
+
+        var window = Window.GetWindow(this)!;
+        var rule = RuleEditorWindow.Show(window, existing: _rules[idx], _host.Config.Chat.DefaultCooldownSec);
+        if (rule is null) return;
+        _rules[idx] = rule;
         RefreshRulesList();
         RulesList.SelectedIndex = idx;
-        StatusText.Text = "Rule updated.";
+        StatusText.Text = $"Updated rule: {rule.Label}";
     }
 
     private void OnRemoveRule(object sender, RoutedEventArgs e)
     {
         var idx = RulesList.SelectedIndex;
         if (idx < 0 || idx >= _rules.Count) return;
+        var label = _rules[idx].Label;
         _rules.RemoveAt(idx);
         RefreshRulesList();
-        StatusText.Text = "Rule removed.";
+        StatusText.Text = $"Removed rule: {label}";
     }
 
     private async void OnToggleChanged(object sender, RoutedEventArgs e)
@@ -309,7 +261,4 @@ public partial class ChatConfigTab : UserControl
             TestResultText.Foreground = Brushes.OrangeRed;
         }
     }
-
-    private int GetDefaultCooldown()
-        => _host?.Config.Chat.DefaultCooldownSec ?? 600;
 }
