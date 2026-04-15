@@ -239,13 +239,13 @@ public class ConfigApplyPipelineTests
         Chat = ChatConfig.Default with
         {
             Enabled = true,
-            Region = new RegionConfig(0, 0, 100, 100, 1.0, new ResolutionConfig(1920, 1080), "PRIMARY")
+            Region = new RegionConfig(0, 0, 100, 100, 96, new ResolutionConfig(1920, 1080), "PRIMARY")
         },
         Audio = AudioConfig.Default with { Enabled = true },
         Status = StatusConfig.Default with
         {
             Enabled = true,
-            Region = new RegionConfig(0, 0, 50, 50, 1.0, new ResolutionConfig(1920, 1080), "PRIMARY")
+            Region = new RegionConfig(0, 0, 50, 50, 96, new ResolutionConfig(1920, 1080), "PRIMARY")
         }
     };
 
@@ -276,8 +276,9 @@ public class ConfigApplyPipelineTests
     public async Task ChatEnabledFalseToTrueAppliesThenStarts()
     {
         var registry = new SpyRegistry();
-        var oldCfg = BaselineEnabled() with { Chat = BaselineEnabled().Chat with { Enabled = false } };
-        var newCfg = BaselineEnabled();
+        var baseline = BaselineEnabled();
+        var oldCfg = baseline with { Chat = baseline.Chat with { Enabled = false } };
+        var newCfg = baseline;
 
         await ConfigApplyPipeline.DispatchAsync(oldCfg, newCfg, registry, CancellationToken.None);
 
@@ -326,7 +327,7 @@ public class ConfigApplyPipelineTests
         {
             Chat = oldCfg.Chat with
             {
-                Region = new RegionConfig(10, 10, 200, 200, 1.0, new ResolutionConfig(1920, 1080), "PRIMARY")
+                Region = new RegionConfig(10, 10, 200, 200, 96, new ResolutionConfig(1920, 1080), "PRIMARY")
             }
         };
 
@@ -603,7 +604,7 @@ public class ConfigDirtyTests
         {
             Chat = saved.Chat with
             {
-                Region = new RegionConfig(5, 5, 50, 50, 1.0, new ResolutionConfig(1920, 1080), "PRIMARY")
+                Region = new RegionConfig(5, 5, 50, 50, 96, new ResolutionConfig(1920, 1080), "PRIMARY")
             }
         };
         ConfigDirty.IsDirtyChatTab(pending, saved).Should().BeTrue();
