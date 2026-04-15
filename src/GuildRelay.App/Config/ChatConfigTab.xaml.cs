@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,42 +13,69 @@ namespace GuildRelay.App.Config;
 
 public partial class ChatConfigTab : UserControl
 {
-    private CoreHost? _host;
-    private RegionConfig _currentRegion = RegionConfig.Empty;
+    private ConfigViewModel? _vm;
     private bool _loading;
-    private readonly ObservableCollection<StructuredChatRule> _rules = new();
     private DebugLiveView? _debugWindow;
 
     public ChatConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _host = (DataContext as ConfigViewModel)?.Host;
-        if (_host is null) return;
+        _vm = DataContext as ConfigViewModel;
+        if (_vm is null) return;
 
-        var chat = _host.Config.Chat;
         _loading = true;
+        var chat = _vm.PendingConfig.Chat;
         EnabledToggle.IsChecked = chat.Enabled;
-        _loading = false;
-        _currentRegion = chat.Region;
-        UpdateRegionLabel();
-
-        // Load rules
-        _rules.Clear();
-        foreach (var r in chat.Rules)
-            _rules.Add(r);
+        UpdateRegionLabel(chat.Region);
         RefreshRulesList();
 
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
         if (RuleTemplates.BuiltInNames.Count > 0)
             TemplateCombo.SelectedIndex = 0;
+        _loading = false;
     }
+
+    private void OnEnabledChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _vm is null) return;
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Enabled = EnabledToggle.IsChecked ?? false });
+    }
+
+    private void OnPickRegion(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var picker = new RegionPickerWindow();
+        if (picker.ShowDialog() == true && picker.SelectedRegion is { } rect)
+        {
+            var dpi = Platform.Windows.Dpi.DpiHelper.GetPrimaryMonitorDpi();
+            var (resW, resH) = Platform.Windows.Dpi.DpiHelper.GetPrimaryScreenResolution();
+            var region = new RegionConfig(
+                rect.X, rect.Y, rect.Width, rect.Height,
+                dpi, new ResolutionConfig(resW, resH), "PRIMARY");
+            _vm.SetPendingChat(_vm.PendingConfig.Chat with { Region = region });
+            UpdateRegionLabel(region);
+        }
+    }
+
+    private void UpdateRegionLabel(RegionConfig region)
+    {
+        RegionLabel.Text = region.IsEmpty
+            ? "No region selected"
+            : $"{region.X},{region.Y} {region.Width}x{region.Height}";
+    }
+
+    // --- Rules list ---
 
     private void RefreshRulesList()
     {
+        if (_vm is null) return;
+        var selected = RulesList.SelectedIndex;
         RulesList.Items.Clear();
-        foreach (var r in _rules)
+        foreach (var r in _vm.PendingConfig.Chat.Rules)
             RulesList.Items.Add(FormatRuleSummary(r));
+        if (selected >= 0 && selected < RulesList.Items.Count)
+            RulesList.SelectedIndex = selected;
         UpdateActionButtons();
     }
 
@@ -67,7 +92,7 @@ public partial class ChatConfigTab : UserControl
     private void UpdateActionButtons()
     {
         bool hasSelection = RulesList.SelectedIndex >= 0;
-        EditRuleButton.IsEnabled = hasSelection;
+        EditRuleButton.IsEnabled   = hasSelection;
         RemoveRuleButton.IsEnabled = hasSelection;
     }
 
@@ -76,76 +101,73 @@ public partial class ChatConfigTab : UserControl
 
     private void OnRulesListDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (RulesList.SelectedIndex >= 0)
-            OnEditRule(sender, e);
+        if (RulesList.SelectedIndex >= 0) OnEditRule(sender, e);
     }
 
     private void OnAddRule(object sender, RoutedEventArgs e)
     {
-        if (_host is null) return;
+        if (_vm is null) return;
         var window = Window.GetWindow(this)!;
-        var rule = RuleEditorWindow.Show(window, existing: null, _host.Config.Chat.DefaultCooldownSec);
+        var rule = RuleEditorWindow.Show(window, existing: null, _vm.PendingConfig.Chat.DefaultCooldownSec);
         if (rule is null) return;
-        _rules.Add(rule);
+        var newRules = new List<StructuredChatRule>(_vm.PendingConfig.Chat.Rules) { rule };
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
         RefreshRulesList();
-        StatusText.Text = $"Added rule: {rule.Label}";
     }
 
     private void OnEditRule(object sender, RoutedEventArgs e)
     {
-        if (_host is null) return;
+        if (_vm is null) return;
         var idx = RulesList.SelectedIndex;
-        if (idx < 0 || idx >= _rules.Count) return;
+        var rules = _vm.PendingConfig.Chat.Rules;
+        if (idx < 0 || idx >= rules.Count) return;
 
         var window = Window.GetWindow(this)!;
-        var rule = RuleEditorWindow.Show(window, existing: _rules[idx], _host.Config.Chat.DefaultCooldownSec);
+        var rule = RuleEditorWindow.Show(window, existing: rules[idx], _vm.PendingConfig.Chat.DefaultCooldownSec);
         if (rule is null) return;
-        _rules[idx] = rule;
+
+        var newRules = new List<StructuredChatRule>(rules);
+        newRules[idx] = rule;
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
         RefreshRulesList();
         RulesList.SelectedIndex = idx;
-        StatusText.Text = $"Updated rule: {rule.Label}";
     }
 
     private void OnRemoveRule(object sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var idx = RulesList.SelectedIndex;
-        if (idx < 0 || idx >= _rules.Count) return;
-        var label = _rules[idx].Label;
-        _rules.RemoveAt(idx);
+        var rules = _vm.PendingConfig.Chat.Rules;
+        if (idx < 0 || idx >= rules.Count) return;
+
+        var newRules = new List<StructuredChatRule>(rules);
+        newRules.RemoveAt(idx);
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
         RefreshRulesList();
-        StatusText.Text = $"Removed rule: {label}";
     }
 
-    private async void OnToggleChanged(object sender, RoutedEventArgs e)
+    private void OnLoadTemplate(object sender, RoutedEventArgs e)
     {
-        if (_loading || _host is null) return;
-        var enabled = EnabledToggle.IsChecked ?? false;
-        var newChat = _host.Config.Chat with { Enabled = enabled };
-        var newConfig = _host.Config with { Chat = newChat };
-        _host.UpdateConfig(newConfig);
-        await _host.ConfigStore.SaveAsync(newConfig);
+        if (_vm is null || TemplateCombo.SelectedItem is not string name) return;
+        if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
 
-        await _host.Registry.StopAsync("chat");
-        if (enabled && !_host.Config.Chat.Region.IsEmpty)
-            await _host.Registry.StartAsync("chat", CancellationToken.None);
+        var current = _vm.PendingConfig.Chat.Rules;
+        var newOnes = templateRules.Where(r => !current.Any(er => er.Id == r.Id)).ToList();
+        if (newOnes.Count == 0) return;
 
-        var window = Window.GetWindow(this) as ConfigWindow;
-        if (window is not null && DataContext is ConfigViewModel vm)
-            window.UpdateIndicators(vm);
-
-        StatusText.Text = enabled ? "Chat Watcher enabled." : "Chat Watcher disabled.";
+        var newRules = new List<StructuredChatRule>(current);
+        newRules.AddRange(newOnes);
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
+        RefreshRulesList();
     }
+
+    // --- Live view ---
 
     private void OnOpenLiveView(object sender, RoutedEventArgs e)
     {
-        if (_host is null) return;
-
-        var chatFeature = _host.Registry.Get("chat") as ChatWatcher;
-        if (chatFeature is null)
-        {
-            StatusText.Text = "Chat Watcher not registered.";
-            return;
-        }
+        if (_vm is null) return;
+        var chatFeature = _vm.Host.Registry.Get("chat") as ChatWatcher;
+        if (chatFeature is null) return;
 
         if (_debugWindow is null || !_debugWindow.IsLoaded)
         {
@@ -157,79 +179,13 @@ public partial class ChatConfigTab : UserControl
         {
             _debugWindow.Activate();
         }
-
-        StatusText.Text = "Live debug view opened. Enable Chat Watcher to see data.";
     }
 
-    private void OnPickRegion(object sender, RoutedEventArgs e)
-    {
-        var picker = new RegionPickerWindow();
-        var result = picker.ShowDialog();
-        if (result == true && picker.SelectedRegion is { } rect)
-        {
-            var dpi = GuildRelay.Platform.Windows.Dpi.DpiHelper.GetPrimaryMonitorDpi();
-            var (resW, resH) = GuildRelay.Platform.Windows.Dpi.DpiHelper.GetPrimaryScreenResolution();
-            _currentRegion = new RegionConfig(
-                rect.X, rect.Y, rect.Width, rect.Height,
-                dpi, new ResolutionConfig(resW, resH), "PRIMARY");
-            UpdateRegionLabel();
-        }
-    }
-
-    private void UpdateRegionLabel()
-    {
-        RegionLabel.Text = _currentRegion.IsEmpty
-            ? "No region selected"
-            : $"{_currentRegion.X},{_currentRegion.Y} {_currentRegion.Width}x{_currentRegion.Height}";
-    }
-
-    private void OnLoadTemplate(object sender, RoutedEventArgs e)
-    {
-        if (TemplateCombo.SelectedItem is not string name) return;
-        if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
-
-        var newRules = templateRules.Where(r => !_rules.Any(er => er.Id == r.Id)).ToList();
-        if (newRules.Count == 0)
-        {
-            StatusText.Text = $"Template \"{name}\" rules already present.";
-            return;
-        }
-
-        foreach (var r in newRules)
-            _rules.Add(r);
-        RefreshRulesList();
-        StatusText.Text = $"Loaded template: {name} ({newRules.Count} rules added)";
-    }
-
-    private async void OnSave(object sender, RoutedEventArgs e)
-    {
-        if (_host is null) return;
-        try
-        {
-            var newChat = _host.Config.Chat with
-            {
-                Enabled = EnabledToggle.IsChecked ?? false,
-                Region = _currentRegion,
-                Rules = _rules.ToList()
-            };
-            var newConfig = _host.Config with { Chat = newChat };
-            _host.UpdateConfig(newConfig);
-            await _host.ConfigStore.SaveAsync(newConfig);
-
-            await _host.Registry.StopAsync("chat");
-            if (newChat.Enabled && !newChat.Region.IsEmpty)
-                await _host.Registry.StartAsync("chat", CancellationToken.None);
-
-            StatusText.Text = "Chat settings saved.";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"Error: {ex.Message}";
-        }
-    }
+    // --- Test message (uses PendingConfig's rules only) ---
 
     private void OnTestMessage(object sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var message = TestMessageBox.Text;
         if (string.IsNullOrWhiteSpace(message))
         {
@@ -238,7 +194,8 @@ public partial class ChatConfigTab : UserControl
             return;
         }
 
-        if (_rules.Count == 0)
+        var rules = _vm.PendingConfig.Chat.Rules;
+        if (rules.Count == 0)
         {
             TestResultText.Text = "No rules defined. Add rules above first.";
             TestResultText.Foreground = Brushes.Gray;
@@ -247,7 +204,7 @@ public partial class ChatConfigTab : UserControl
 
         var normalized = TextNormalizer.Normalize(message);
         var parsed = ChatLineParser.Parse(normalized);
-        var matcher = new ChannelMatcher(_rules);
+        var matcher = new ChannelMatcher(rules);
         var match = matcher.FindMatch(parsed);
 
         if (match is not null)
