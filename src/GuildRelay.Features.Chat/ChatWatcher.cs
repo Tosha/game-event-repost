@@ -25,6 +25,7 @@ public sealed class ChatTickDebugInfo
     public List<string> OcrLines { get; init; } = new();
     public List<string> NormalizedLines { get; init; } = new();
     public List<string> ParsedChannels { get; init; } = new();
+    public List<string> LineRoles { get; init; } = new();  // NEW: "HEADER" | "CONT" | "SKIP"
     public List<string> MatchResults { get; init; } = new();
     public DateTimeOffset Timestamp { get; init; }
 }
@@ -38,6 +39,7 @@ public sealed class ChatWatcher : IFeature
     private readonly string _playerName;
     private readonly ChatDedup _dedup = new(capacity: 256);
     private readonly CooldownTracker _cooldown = new();
+    private AssembledMessage? _deferredTrailing;
     private ChatConfig _config;
     private ChannelMatcher _matcher;
     private CancellationTokenSource? _cts;
@@ -75,6 +77,7 @@ public sealed class ChatWatcher : IFeature
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _dedup.Clear();
         _cooldown.Reset();
+        _deferredTrailing = null;
         Status = FeatureStatus.Running;
         _ = Task.Run(() => CaptureLoopAsync(_cts.Token));
         return Task.CompletedTask;
@@ -83,6 +86,7 @@ public sealed class ChatWatcher : IFeature
     public Task StopAsync()
     {
         _cts?.Cancel();
+        _deferredTrailing = null;
         Status = FeatureStatus.Idle;
         return Task.CompletedTask;
     }
@@ -134,7 +138,6 @@ public sealed class ChatWatcher : IFeature
 
         var matcher = _matcher;
 
-        // Build debug info
         var debug = DebugTick is not null ? new ChatTickDebugInfo
         {
             CapturedImageBgra = (byte[])raw.BgraPixels.Clone(),
@@ -144,82 +147,97 @@ public sealed class ChatWatcher : IFeature
             Timestamp = DateTimeOffset.UtcNow
         } : null;
 
-        var normalizedLines = new List<(string normalized, string original)>();
+        // Build assembler input: normalize each OCR line.
+        var inputs = new List<OcrLineInput>(ocrResult.Lines.Count);
         foreach (var line in ocrResult.Lines)
         {
-            if (line.Confidence < _config.OcrConfidenceThreshold)
-                continue;
             var normalized = TextNormalizer.Normalize(line.Text);
-            if (!string.IsNullOrEmpty(normalized))
+            if (string.IsNullOrEmpty(normalized)) continue;
+            inputs.Add(new OcrLineInput(normalized, line.Text, line.Confidence));
+
+            if (debug is not null)
             {
-                normalizedLines.Add((normalized, line.Text));
-                debug?.OcrLines.Add(line.Text);
-                debug?.NormalizedLines.Add(normalized);
+                debug.OcrLines.Add(line.Text);
+                debug.NormalizedLines.Add(normalized);
+                bool skip = line.Confidence < _config.OcrConfidenceThreshold;
+                bool header = !skip && ChatLineParser.IsHeader(normalized);
+                debug.LineRoles.Add(skip ? "SKIP" : header ? "HEADER" : "CONT");
                 var parsed = ChatLineParser.Parse(normalized);
-                debug?.ParsedChannels.Add(parsed.Channel ?? "—");
+                debug.ParsedChannels.Add(parsed.Channel ?? "—");
             }
         }
 
-        for (int i = 0; i < normalizedLines.Count; i++)
+        var assembly = ChatMessageAssembler.Assemble(inputs, _config.OcrConfidenceThreshold);
+        var (toEmit, newBuffer) = DeferredTrailing.Resolve(_deferredTrailing, assembly);
+
+        // Diagnostics: anything held in the new buffer is "deferred" this tick.
+        if (debug is not null && newBuffer is not null)
+            debug.MatchResults.Add(
+                $"DEFERRED [rows {newBuffer.StartRow}-{newBuffer.EndRow}]: " +
+                $"[{newBuffer.Channel ?? "—"}] {newBuffer.OriginalText}");
+
+        // Track which emitted messages originated from the deferred buffer so we can
+        // distinguish EMITTED-DEFERRED from EMITTED in the debug log. This relies on
+        // a deliberate contract from DeferredTrailing.Resolve: when it could not find
+        // a grown version of the previous trailing in current.Completed, it inserts
+        // the previousTrailing *by reference* at toEmit[0]. That reference identity
+        // is the only reliable signal that toEmit[0] is the freshly-unbuffered version
+        // versus a normally-completed message. If DeferredTrailing.Resolve is ever
+        // changed to copy/clone the message, update this check in lockstep.
+        var previousWasEmittedFromBuffer =
+            _deferredTrailing is not null &&
+            toEmit.Count > 0 &&
+            ReferenceEquals(toEmit[0], _deferredTrailing);
+
+        _deferredTrailing = newBuffer;
+
+        for (int i = 0; i < toEmit.Count; i++)
         {
-            var (normalized, original) = normalizedLines[i];
+            var msg = toEmit[i];
+            var fromBuffer = (i == 0) && previousWasEmittedFromBuffer;
+            var prefix = fromBuffer ? "EMITTED-DEFERRED" : "EMITTED";
 
-            // Build candidates: try joining up to 3 consecutive lines (longest first)
-            // to handle OCR splitting long [Game] messages across multiple lines.
-            var candidates = new List<(string normalized, string original)>();
-
-            // 3-line join
-            if (i + 2 < normalizedLines.Count)
+            // U+001F (Unit Separator) cannot appear in OCR output or user text, so
+            // it is safe to use as a field delimiter in the dedup key.
+            const string sep = "\x1F";
+            var dedupKey = $"{msg.Channel}{sep}{msg.PlayerName}{sep}{msg.Timestamp}{sep}{msg.Body}";
+            if (_dedup.IsDuplicate(dedupKey))
             {
-                candidates.Add((
-                    normalized + " " + normalizedLines[i + 1].normalized + " " + normalizedLines[i + 2].normalized,
-                    original + " " + normalizedLines[i + 1].original + " " + normalizedLines[i + 2].original));
+                debug?.MatchResults.Add(
+                    $"DEDUP [rows {msg.StartRow}-{msg.EndRow}]: {msg.OriginalText}");
+                continue;
             }
-            // 2-line join
-            if (i + 1 < normalizedLines.Count)
+
+            var parsed = msg.ToParsedChatLine();
+            var match = matcher.FindMatch(parsed);
+            if (match is null) continue;
+
+            if (!_cooldown.TryFire(match.Rule.Id, TimeSpan.FromSeconds(match.Rule.CooldownSec)))
             {
-                candidates.Add((
-                    normalized + " " + normalizedLines[i + 1].normalized,
-                    original + " " + normalizedLines[i + 1].original));
+                debug?.MatchResults.Add(
+                    $"COOLDOWN [{match.Rule.Label}] rows {msg.StartRow}-{msg.EndRow}: " +
+                    $"{msg.OriginalText}");
+                continue;
             }
-            // Single line
-            candidates.Add((normalized, original));
 
-            foreach (var candidate in candidates)
-            {
-                if (_dedup.IsDuplicate(candidate.Item1))
-                {
-                    debug?.MatchResults.Add($"DEDUP: {candidate.Item2}");
-                    continue;
-                }
+            debug?.MatchResults.Add(
+                $"{prefix} [{match.Rule.Label}] rows {msg.StartRow}-{msg.EndRow}: " +
+                $"{msg.OriginalText}");
 
-                var parsed = ChatLineParser.Parse(candidate.Item1);
-                var match = matcher.FindMatch(parsed);
-                if (match is null) continue;
+            var evt = new DetectionEvent(
+                FeatureId: "chat",
+                RuleLabel: match.Rule.Label,
+                MatchedContent: msg.OriginalText,
+                TimestampUtc: DateTimeOffset.UtcNow,
+                PlayerName: _playerName,
+                Extras: new Dictionary<string, string>(),
+                ImageAttachment: null);
 
-                if (!_cooldown.TryFire(match.Rule.Id, TimeSpan.FromSeconds(match.Rule.CooldownSec)))
-                {
-                    debug?.MatchResults.Add($"COOLDOWN: [{match.Rule.Label}] {candidate.Item2}");
-                    continue;
-                }
-
-                debug?.MatchResults.Add($"POSTED: [{match.Rule.Label}] {candidate.Item2}");
-
-                var evt = new DetectionEvent(
-                    FeatureId: "chat",
-                    RuleLabel: match.Rule.Label,
-                    MatchedContent: candidate.Item2,
-                    TimestampUtc: DateTimeOffset.UtcNow,
-                    PlayerName: _playerName,
-                    Extras: new Dictionary<string, string>(),
-                    ImageAttachment: null);
-
-                await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
-                break;
-            }
+            await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
         }
 
-        if (debug is not null && normalizedLines.Count > 0)
+        if (debug is not null &&
+            (debug.OcrLines.Count > 0 || debug.MatchResults.Count > 0))
             DebugTick?.Invoke(debug);
     }
 }

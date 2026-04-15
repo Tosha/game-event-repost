@@ -27,6 +27,8 @@ public static class ChatLineParser
     public static IReadOnlyCollection<string> KnownChannelNames { get; } =
         new[] { "Say", "Yell", "Whisper", "Guild", "Skill", "Combat", "Game", "Server", "Nave", "Trade", "Help" };
 
+    public static bool IsHeader(string line) => Parse(line).Channel is not null;
+
     public static ParsedChatLine Parse(string line)
     {
         var pos = 0;

@@ -82,42 +82,37 @@ public class ChatWatcherEndToEndTests
     private List<string> MatchWithChannelMatcher(List<OcrLine> lines, StructuredChatRule rule)
     {
         var matcher = new ChannelMatcher(new[] { rule });
-        var normalizedLines = new List<(string normalized, string original)>();
+
+        var inputs = new List<OcrLineInput>();
         foreach (var line in lines)
         {
             var n = TextNormalizer.Normalize(line.Text);
             if (!string.IsNullOrEmpty(n))
             {
-                normalizedLines.Add((n, line.Text));
-                _output.WriteLine($"  Normalized: \"{n}\"");
+                inputs.Add(new OcrLineInput(n, line.Text, line.Confidence));
+                _output.WriteLine($"  Normalized: \"{n}\" conf={line.Confidence:F2}");
             }
         }
 
+        // Threshold mirrors the default ChatConfig value used in production.
+        var assembly = ChatMessageAssembler.Assemble(inputs, confidenceThreshold: 0.65);
+
+        // End-to-end test covers a single-tick fixture, so treat any Trailing
+        // message as a candidate too — there is no "next tick" to terminate it,
+        // and the fixture represents the whole visible region.
+        var candidates = new List<AssembledMessage>();
+        candidates.AddRange(assembly.Completed);
+        if (assembly.Trailing is not null) candidates.Add(assembly.Trailing);
+
         var matches = new List<string>();
-        for (int i = 0; i < normalizedLines.Count; i++)
+        foreach (var msg in candidates)
         {
-            var (norm, orig) = normalizedLines[i];
-            var matched = false;
-
-            // Try joining up to 3 lines (longest first) to handle long messages
-            for (int span = Math.Min(3, normalizedLines.Count - i); span >= 1 && !matched; span--)
+            var parsed = msg.ToParsedChatLine();
+            var match = matcher.FindMatch(parsed);
+            if (match is not null)
             {
-                var joinedNorm = norm;
-                var joinedOrig = orig;
-                for (int j = 1; j < span; j++)
-                {
-                    joinedNorm += " " + normalizedLines[i + j].normalized;
-                    joinedOrig += " " + normalizedLines[i + j].original;
-                }
-
-                var parsed = ChatLineParser.Parse(joinedNorm);
-                var match = matcher.FindMatch(parsed);
-                if (match is not null)
-                {
-                    _output.WriteLine($"  MATCH ({span}-line): \"{joinedOrig}\"");
-                    matches.Add(joinedOrig);
-                    matched = true;
-                }
+                _output.WriteLine($"  MATCH rows {msg.StartRow}-{msg.EndRow}: \"{msg.OriginalText}\"");
+                matches.Add(msg.OriginalText);
             }
         }
         return matches;
