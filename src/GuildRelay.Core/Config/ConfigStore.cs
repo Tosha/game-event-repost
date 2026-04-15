@@ -51,7 +51,7 @@ public sealed class ConfigStore
                 return AppConfig.Default;
             }
 
-            return loaded;
+            return SanitizeIntervals(loaded);
         }
         catch (JsonException)
         {
@@ -62,6 +62,24 @@ public sealed class ConfigStore
             await SaveAsync(AppConfig.Default).ConfigureAwait(false);
             return AppConfig.Default;
         }
+    }
+
+    // Guards against silent zero-intervals left by prior field renames
+    // (e.g. captureIntervalMs → captureIntervalSec). System.Text.Json
+    // fills missing ctor parameters with default(int) = 0, which would
+    // otherwise reach the UI as a blank/zero interval instead of the
+    // documented 5-second default.
+    private static AppConfig SanitizeIntervals(AppConfig cfg)
+    {
+        var chat = cfg.Chat;
+        if (chat.CaptureIntervalSec <= 0)
+            chat = chat with { CaptureIntervalSec = ChatConfig.Default.CaptureIntervalSec };
+
+        var status = cfg.Status;
+        if (status.CaptureIntervalSec <= 0)
+            status = status with { CaptureIntervalSec = StatusConfig.Default.CaptureIntervalSec };
+
+        return cfg with { Chat = chat, Status = status };
     }
 
     public async Task SaveAsync(AppConfig config)
