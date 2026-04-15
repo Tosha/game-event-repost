@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using GuildRelay.App.RegionPicker;
@@ -11,101 +10,71 @@ namespace GuildRelay.App.Config;
 
 public partial class StatusConfigTab : UserControl
 {
-    private CoreHost? _host;
-    private RegionConfig _currentRegion = RegionConfig.Empty;
+    private ConfigViewModel? _vm;
     private bool _loading;
 
     public StatusConfigTab() { InitializeComponent(); Loaded += OnLoaded; }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _host = (DataContext as ConfigViewModel)?.Host;
-        if (_host is null) return;
+        _vm = DataContext as ConfigViewModel;
+        if (_vm is null) return;
 
-        var status = _host.Config.Status;
         _loading = true;
+        var status = _vm.PendingConfig.Status;
         EnabledToggle.IsChecked = status.Enabled;
-        _loading = false;
-        IntervalBox.Text = status.CaptureIntervalSec.ToString();
-        DebounceBox.Text = status.DebounceSamples.ToString();
-        _currentRegion = status.Region;
-        UpdateRegionLabel();
+        IntervalBox.Text  = status.CaptureIntervalSec.ToString();
+        DebounceBox.Text  = status.DebounceSamples.ToString();
+        UpdateRegionLabel(status.Region);
 
         var lines = status.DisconnectPatterns.Select(p =>
             $"{p.Label}|{p.Pattern}|{(p.Regex ? "regex" : "literal")}");
         PatternsBox.Text = string.Join(Environment.NewLine, lines);
+        _loading = false;
     }
 
-    private async void OnToggleChanged(object sender, RoutedEventArgs e)
+    private void OnEnabledChanged(object sender, RoutedEventArgs e)
     {
-        if (_loading || _host is null) return;
-        var enabled = EnabledToggle.IsChecked ?? false;
-        var newStatus = _host.Config.Status with { Enabled = enabled };
-        var newConfig = _host.Config with { Status = newStatus };
-        _host.UpdateConfig(newConfig);
-        await _host.ConfigStore.SaveAsync(newConfig);
-
-        await _host.Registry.StopAsync("status");
-        if (enabled && !_host.Config.Status.Region.IsEmpty)
-            await _host.Registry.StartAsync("status", CancellationToken.None);
-
-        var window = Window.GetWindow(this) as ConfigWindow;
-        if (window is not null && DataContext is ConfigViewModel vm)
-            window.UpdateIndicators(vm);
-
-        StatusText.Text = enabled ? "Status Watcher enabled." : "Status Watcher disabled.";
+        if (_loading || _vm is null) return;
+        _vm.SetPendingStatus(_vm.PendingConfig.Status with { Enabled = EnabledToggle.IsChecked ?? false });
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var picker = new RegionPickerWindow();
-        var result = picker.ShowDialog();
-        if (result == true && picker.SelectedRegion is { } rect)
+        if (picker.ShowDialog() == true && picker.SelectedRegion is { } rect)
         {
             var dpi = Platform.Windows.Dpi.DpiHelper.GetPrimaryMonitorDpi();
             var (resW, resH) = Platform.Windows.Dpi.DpiHelper.GetPrimaryScreenResolution();
-            _currentRegion = new RegionConfig(
+            var region = new RegionConfig(
                 rect.X, rect.Y, rect.Width, rect.Height,
                 dpi, new ResolutionConfig(resW, resH), "PRIMARY");
-            UpdateRegionLabel();
+            _vm.SetPendingStatus(_vm.PendingConfig.Status with { Region = region });
+            UpdateRegionLabel(region);
         }
     }
 
-    private void UpdateRegionLabel()
+    private void UpdateRegionLabel(RegionConfig region)
     {
-        RegionLabel.Text = _currentRegion.IsEmpty
+        RegionLabel.Text = region.IsEmpty
             ? "No region selected"
-            : $"{_currentRegion.X},{_currentRegion.Y} {_currentRegion.Width}x{_currentRegion.Height}";
+            : $"{region.X},{region.Y} {region.Width}x{region.Height}";
     }
 
-    private async void OnSave(object sender, RoutedEventArgs e)
+    private void OnFieldChanged(object sender, TextChangedEventArgs e)
     {
-        if (_host is null) return;
-        try
+        if (_loading || _vm is null) return;
+        var current = _vm.PendingConfig.Status;
+        var interval = int.TryParse(IntervalBox.Text, out var iv) ? iv : current.CaptureIntervalSec;
+        var debounce = int.TryParse(DebounceBox.Text, out var db) ? db : current.DebounceSamples;
+        var patterns = ParsePatterns(PatternsBox.Text);
+        _vm.SetPendingStatus(current with
         {
-            var patterns = ParsePatterns(PatternsBox.Text);
-            var newStatus = _host.Config.Status with
-            {
-                Enabled = EnabledToggle.IsChecked ?? false,
-                CaptureIntervalSec = int.TryParse(IntervalBox.Text, out var iv) ? iv : 5,
-                DebounceSamples = int.TryParse(DebounceBox.Text, out var db) ? db : 3,
-                Region = _currentRegion,
-                DisconnectPatterns = patterns
-            };
-            var newConfig = _host.Config with { Status = newStatus };
-            _host.UpdateConfig(newConfig);
-            await _host.ConfigStore.SaveAsync(newConfig);
-
-            await _host.Registry.StopAsync("status");
-            if (newStatus.Enabled && !newStatus.Region.IsEmpty)
-                await _host.Registry.StartAsync("status", CancellationToken.None);
-
-            StatusText.Text = "Status settings saved.";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"Error: {ex.Message}";
-        }
+            CaptureIntervalSec  = interval,
+            DebounceSamples     = debounce,
+            DisconnectPatterns  = patterns
+        });
     }
 
     private static List<DisconnectPatternConfig> ParsePatterns(string text)
