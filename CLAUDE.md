@@ -72,6 +72,16 @@ GuildRelay.sln
 
 **Dependency rule (enforce this):** `Core` depends on nothing. Features and Platform depend on `Core`. `App` depends on everything. `Core` must remain testable on any OS — no `Windows.*` namespaces, no P/Invoke, no NAudio.
 
+## Branching
+
+All work must be committed on a dedicated branch whose prefix matches the kind of work:
+
+- `feature/<name>` — new features or feature changes
+- `fix/<name>` — bug fixes
+- `chore/<name>` — chores, docs, maintenance
+
+Before the first commit of any task, verify the current branch matches the work. If it doesn't, create a new branch with the correct prefix from `main`. Do **not** piggyback unrelated work on an existing branch just because it happens to be checked out.
+
 ## Coding conventions
 
 - **Test-driven development.** Use the `superpowers:test-driven-development` skill when implementing any feature or bugfix. Write a failing test, make it pass, refactor. The exception is UI code in `GuildRelay.App` where pure unit tests add little value — for those, favor extracting logic into testable view models and testing those instead.
