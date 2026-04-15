@@ -75,8 +75,19 @@ Per-message hash over `channel | player | timestamp? | body`. Replaces per-line 
 ### Neutral
 
 - `ChatLineParser` stays; it is repurposed as the header-classifier primitive for the assembler.
-- The live debug view in `ChatWatcher` changes its per-tick shape — OCR lines become grouped under messages. Existing `ChatTickDebugInfo` fields (`OcrLines`, `NormalizedLines`, `ParsedChannels`, `MatchResults`) remain meaningful but gain a per-message grouping.
 - OCR confidence threshold now applies at the line level during assembly. Policy: a continuation line below threshold is dropped (the message is still emitted without it); a header line below threshold drops the whole message.
+
+### Impact on the Live Debug View
+
+The live view at [`DebugLiveView`](../../../src/GuildRelay.App/Config/DebugLiveView.xaml.cs) is **data-contract compatible** — no field on `ChatTickDebugInfo` is removed or renamed, the `ChatWatcher.DebugTick` event and its `Attach/Detach` wiring do not change, and the captured-region image panel is unaffected. Three rendering concerns must be handled in the implementation, otherwise the view will show stale or misleading output:
+
+1. **Per-line channel column.** Today `UpdateOcrOutput` renders `[{channel}]  OCR: "…"` for every OCR line. Under the new model only *header* lines carry a channel; *continuation* lines will render as `[—]` and look like parse failures. The assembler must tag each OCR line as `HEADER` or `CONT` (either inline with `ParsedChannels` or via a parallel list), so the view can show `[Game]  OCR: "…"` for headers and `  ↳ OCR: "…"` for continuations.
+2. **Match-results log.** The current log emits per-candidate entries (`line`, `line+next`, `line+next+next2`). Under the new model the assembler emits one entry per message, which is simpler but loses the "which OCR rows produced this match" trail. Message-level entries must include the OCR row range (e.g. `POSTED [rows 3-4]: …`) so the operator can still trace a match back to the image.
+3. **Deferred last message.** A buffered trailing message produces no `MatchResults` entry on the tick it is assembled, then fires on the next tick. Without an explicit diagnostic the operator sees "a message on screen, nothing happened" and assumes a bug. Introduce two new prefixes symmetrical with the existing `DEDUP:`/`COOLDOWN:`/`POSTED:`:
+   - `DEFERRED: [Channel] body…` on the tick the message is buffered.
+   - `EMITTED-DEFERRED: [Channel] body…` on the tick it is actually posted.
+
+Optional but recommended: add a `Messages` collection to `ChatTickDebugInfo`, one entry per assembled message with `{channel, player, timestamp?, body, ocrRowRange, disposition}`. The existing `OcrLines`/`NormalizedLines`/`ParsedChannels` fields stay for raw-OCR diagnostics; Live View renders by message, not by line.
 
 ## Alternatives considered
 
