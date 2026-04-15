@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace GuildRelay.Features.Chat;
@@ -44,6 +45,6 @@ public static class DeferredTrailing
         if (candidate.Channel != previous.Channel) return false;
         if (candidate.PlayerName != previous.PlayerName) return false;
         if (candidate.Timestamp != previous.Timestamp) return false;
-        return candidate.Body.StartsWith(previous.Body);
+        return candidate.Body.StartsWith(previous.Body, StringComparison.Ordinal);
     }
 }
