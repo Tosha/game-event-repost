@@ -68,8 +68,7 @@ Each rule consists of:
 
 | Rule name | Channels | Keywords | Mode | What it catches |
 |---|---|---|---|---|
-| MO2 Game Events | GAME | Sylvan Sanctum, Dire Wolf, Tindremic Heartlands, ... | Contains any | Game events at known locations |
-| Incoming alerts | NAVE, YELL | inc, incoming, enemies | Contains any | Player callouts about incoming threats |
+| MO2 Game Events | GAME | Sylvan Sanctum, Tindremic Heartlands, ... | Contains any | Game events at known locations |
 | Guild relay | GUILD | *(empty = all messages)* | Contains any | Every guild chat message |
 | Server notices | SERVER | *(empty = all messages)* | Contains any | All server announcements |
 
