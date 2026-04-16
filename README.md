@@ -33,6 +33,7 @@ Chat Watcher captures a region of your screen, runs OCR on it, and posts to Disc
 ### First-time setup
 
 <img width="592" height="615" alt="image" src="https://github.com/user-attachments/assets/e5d6ac0f-3fb8-4fb6-b6bd-46565e21aaed" />
+
 1. Open the config window (right-click the system tray icon → **Open Config**, or it auto-opens on first launch).
 2. On the **Settings** tab, paste your guild's Discord webhook URL, enter your in-game character name, and click **Test webhook** to make sure your channel receives the test message.
 3. Switch to the **Chat Watcher** tab and flip the toggle switch to enable the feature.
