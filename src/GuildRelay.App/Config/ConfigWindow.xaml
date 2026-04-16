@@ -21,7 +21,8 @@
             <TabItem x:Name="ChatTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="ChatDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        <TextBlock x:Name="ChatActiveDot" Text="●" Foreground="#44FF44" Margin="0,0,3,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Chat Watcher is running"/>
+                        <TextBlock x:Name="ChatDot"       Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Chat Watcher"/>
                         <ui:SymbolIcon Symbol="Chat24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
@@ -31,7 +32,8 @@
             <TabItem x:Name="AudioTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="AudioDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        <TextBlock x:Name="AudioActiveDot" Text="●" Foreground="#44FF44" Margin="0,0,3,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Audio Watcher is running"/>
+                        <TextBlock x:Name="AudioDot"       Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Audio Watcher (WIP)"/>
                         <ui:SymbolIcon Symbol="Speaker224" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
@@ -41,7 +43,8 @@
             <TabItem x:Name="StatusTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="StatusDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
+                        <TextBlock x:Name="StatusActiveDot" Text="●" Foreground="#44FF44" Margin="0,0,3,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed" ToolTip="Status Watcher is running"/>
+                        <TextBlock x:Name="StatusDot"       Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Status Watcher (WIP)"/>
                         <ui:SymbolIcon Symbol="Pulse24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
