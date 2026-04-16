@@ -60,6 +60,29 @@ public class ConfigApplyPipelineTests
         registry.Calls.Should().BeEmpty();
     }
 
+    // After a Save, the ViewModel replaces its pending copy with a JSON-cloned
+    // snapshot of the saved config. The next dispatch pair has structurally
+    // equal but reference-unequal list/dictionary members. Pipeline must
+    // recognize that as a no-op so it doesn't reapply every section unnecessarily.
+    [Fact]
+    public async Task JsonRoundTrippedIdenticalConfigsProduceNoCalls()
+    {
+        var registry = new SpyRegistry();
+        var cfg = BaselineEnabled();
+        var cloned = JsonRoundTrip(cfg);
+
+        await ConfigApplyPipeline.DispatchAsync(cfg, cloned, registry, CancellationToken.None);
+
+        registry.Calls.Should().BeEmpty();
+    }
+
+    private static AppConfig JsonRoundTrip(AppConfig src)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(src);
+        return JsonSerializer.Deserialize<AppConfig>(bytes)
+            ?? throw new System.InvalidOperationException("round-trip failed");
+    }
+
     [Fact]
     public async Task ChatEnabledTrueToFalseStopsOnly()
     {

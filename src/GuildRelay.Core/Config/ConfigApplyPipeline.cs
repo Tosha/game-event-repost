@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,6 +24,7 @@ public static class ConfigApplyPipeline
             name: "chat",
             oldEnabled: oldConfig.Chat.Enabled, newEnabled: newConfig.Chat.Enabled,
             oldCfg: oldConfig.Chat, newCfg: newConfig.Chat,
+            equal: ConfigEquality.Equal,
             needsRestart: ChatNeedsRestart,
             registry: registry,
             ct: ct).ConfigureAwait(false);
@@ -33,6 +33,7 @@ public static class ConfigApplyPipeline
             name: "audio",
             oldEnabled: oldConfig.Audio.Enabled, newEnabled: newConfig.Audio.Enabled,
             oldCfg: oldConfig.Audio, newCfg: newConfig.Audio,
+            equal: ConfigEquality.Equal,
             needsRestart: static (_, _) => false,
             registry: registry,
             ct: ct).ConfigureAwait(false);
@@ -41,6 +42,7 @@ public static class ConfigApplyPipeline
             name: "status",
             oldEnabled: oldConfig.Status.Enabled, newEnabled: newConfig.Status.Enabled,
             oldCfg: oldConfig.Status, newCfg: newConfig.Status,
+            equal: ConfigEquality.Equal,
             needsRestart: StatusNeedsRestart,
             registry: registry,
             ct: ct).ConfigureAwait(false);
@@ -50,6 +52,7 @@ public static class ConfigApplyPipeline
         string name,
         bool oldEnabled, bool newEnabled,
         T oldCfg, T newCfg,
+        System.Func<T, T, bool> equal,
         System.Func<T, T, bool> needsRestart,
         IFeatureRegistry registry,
         CancellationToken ct)
@@ -73,8 +76,10 @@ public static class ConfigApplyPipeline
             return;
         }
 
-        // Case 4: both enabled. If config didn't change, no-op.
-        if (EqualityComparer<T>.Default.Equals(oldCfg, newCfg)) return;
+        // Case 4: both enabled. If config didn't change, no-op. Use structural
+        // equality — record Equals would compare list/dict members by reference
+        // and spuriously report "changed" every time after a ViewModel clone.
+        if (equal(oldCfg, newCfg)) return;
 
         // Otherwise push the new config, then restart if a baked-in field changed.
         await registry.ApplyConfigAsync(name, Serialize(newCfg)).ConfigureAwait(false);
