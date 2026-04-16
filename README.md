@@ -36,11 +36,11 @@ Chat Watcher captures a region of your screen, runs OCR on it, and posts to Disc
 2. On the **Settings** tab, paste your guild's Discord webhook URL, enter your in-game character name, and click **Test webhook** to make sure your channel receives the test message.
 3. Switch to the **Chat Watcher** tab and flip the toggle switch to enable the feature.
 
-> 📷 _Screenshot: Chat Watcher tab -- enable toggle, Pick region button, rule list with +/✎/− action buttons, Live View button, and the test-message field at the bottom._
+<img width="594" height="614" alt="image" src="https://github.com/user-attachments/assets/8d4854ff-9440-48e2-8bb2-d984f46bc9c4" />
 
 4. Click **Pick region** and drag a rectangle over your in-game chat window. MO2 must be running in **borderless** or **windowed** mode -- exclusive fullscreen hides the window from desktop capture.
 
-> 📷 _Screenshot: region picker overlay covering the screen while the user drags a selection rectangle around the chat window._
+<img width="430" height="279" alt="image" src="https://github.com/user-attachments/assets/e8f3f587-d08f-4b66-b453-84b32fe4927e" />
 
 5. The **MO2 Game Events** rule template is pre-loaded by default -- it watches the GAME channel for events at 45 known locations (Sylvan Sanctum, Tindremic Heartlands, Tindrem Sewers, and more). For most users this is enough to start with.
 6. Click **Save** in the sticky footer at the bottom of the config window. The Chat Watcher starts immediately, the orange "unsaved changes" dot disappears, and a green "running" dot appears on the tab header.
@@ -55,8 +55,8 @@ The **Live View** button on the Chat Watcher tab opens a debug window that lets 
 - **Captured region (raw)** -- the exact pixels just grabbed from your chat region, with nearest-neighbor scaling so OCR-relevant detail isn't blurred away.
 - **OCR output → parsed channel → normalized** -- every line OCR produced, tagged as a channel header (e.g. `[GAME]`, `[GUILD]`), a continuation of the previous line (`↳`), or skipped, and shown alongside its normalized form (the text actually used for matching).
 - **Match results** -- which rules matched on this tick, or "No matches this tick".
-
-> 📷 _Screenshot: Live View window showing the captured chat region thumbnail, the OCR / channel / normalized output, and a recent match result._
+  
+<img width="686" height="591" alt="image" src="https://github.com/user-attachments/assets/cbd32143-ba60-4876-b8a7-d91c35ba16af" />
 
 Use Live View whenever you're tuning the captured region or trying to figure out why a rule isn't firing. You can see at a glance whether OCR is reading clean text, whether channel tags are being parsed correctly, and whether your keywords are matching what's on screen. Close the window when you're done -- it stops receiving updates as soon as it closes and adds no overhead while shut.
 
