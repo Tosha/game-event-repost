@@ -65,15 +65,17 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         SettingsDot.Visibility = vm.IsDirtySettingsTab ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Green dot on a feature tab = that feature is currently running. Tracks
-    // SavedConfig (not PendingConfig) because the feature watchdog only starts
-    // or stops when a save goes through the apply pipeline — toggling the
-    // switch without saving just dirties the config.
+    // Green dot on a feature tab = the user wants this feature on. Tracks
+    // PendingConfig (the toggle the user just clicked) rather than
+    // SavedConfig (the running state) so the dot stays in sync with the
+    // toggle. The orange dirty dot already conveys "save still needed"; if
+    // the green dot lagged the toggle until save, toggling off would show
+    // both dots at once and look contradictory ("on but turning off").
     private void UpdateActiveDots(ConfigViewModel vm)
     {
-        ChatActiveDot.Visibility   = vm.SavedConfig.Chat.Enabled   ? Visibility.Visible : Visibility.Collapsed;
-        AudioActiveDot.Visibility  = vm.SavedConfig.Audio.Enabled  ? Visibility.Visible : Visibility.Collapsed;
-        StatusActiveDot.Visibility = vm.SavedConfig.Status.Enabled ? Visibility.Visible : Visibility.Collapsed;
+        ChatActiveDot.Visibility   = vm.PendingConfig.Chat.Enabled   ? Visibility.Visible : Visibility.Collapsed;
+        AudioActiveDot.Visibility  = vm.PendingConfig.Audio.Enabled  ? Visibility.Visible : Visibility.Collapsed;
+        StatusActiveDot.Visibility = vm.PendingConfig.Status.Enabled ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
