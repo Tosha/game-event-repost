@@ -89,6 +89,8 @@ Manage rules from the buttons next to the **Active rules** list on the Chat Watc
 
 Double-clicking a rule in the list also opens the editor.
 
+<img width="492" height="518" alt="image" src="https://github.com/user-attachments/assets/06d50ba0-626e-4ee4-bc20-0f3a04828d33" />
+
 > 📷 _Screenshot: rule editor dialog showing the Label field, Channels checkbox panel, Keywords box, match-mode radios, and the "Pause between Discord notifications" field._
 
 Each rule has:
