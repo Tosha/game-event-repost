@@ -36,7 +36,8 @@
                     <RadioButton x:Name="RegexRadio" Content="Regex"/>
                 </StackPanel>
 
-                <TextBlock Text="Cooldown (seconds)" FontWeight="SemiBold"/>
+                <TextBlock Text="Pause between Discord notifications (seconds)" FontWeight="SemiBold"
+                           ToolTip="Overrides the default pause set on the Settings tab for this rule only. After this rule matches and posts to Discord, it stays silent for this many seconds before it can fire again."/>
                 <TextBox x:Name="RuleCooldownBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,16"/>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
