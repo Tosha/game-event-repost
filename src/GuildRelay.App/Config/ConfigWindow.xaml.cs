@@ -39,12 +39,14 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
 
         vm.PropertyChanged += OnViewModelPropertyChanged;
         UpdateDirtyUi(vm);
+        UpdateActiveDots(vm);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (DataContext is not ConfigViewModel vm) return;
         UpdateDirtyUi(vm);
+        UpdateActiveDots(vm);
     }
 
     private void UpdateDirtyUi(ConfigViewModel vm)
@@ -61,6 +63,17 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
         AudioDot.Visibility    = vm.IsDirtyAudioTab    ? Visibility.Visible : Visibility.Collapsed;
         StatusDot.Visibility   = vm.IsDirtyStatusTab   ? Visibility.Visible : Visibility.Collapsed;
         SettingsDot.Visibility = vm.IsDirtySettingsTab ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // Green dot on a feature tab = that feature is currently running. Tracks
+    // SavedConfig (not PendingConfig) because the feature watchdog only starts
+    // or stops when a save goes through the apply pipeline — toggling the
+    // switch without saving just dirties the config.
+    private void UpdateActiveDots(ConfigViewModel vm)
+    {
+        ChatActiveDot.Visibility   = vm.SavedConfig.Chat.Enabled   ? Visibility.Visible : Visibility.Collapsed;
+        AudioActiveDot.Visibility  = vm.SavedConfig.Audio.Enabled  ? Visibility.Visible : Visibility.Collapsed;
+        StatusActiveDot.Visibility = vm.SavedConfig.Status.Enabled ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
