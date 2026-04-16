@@ -88,13 +88,16 @@ public sealed class ConfigViewModel : INotifyPropertyChanged
 
     public async Task SaveAsync(CancellationToken ct = default)
     {
+        // This VM is UI-bound: PropertyChanged subscribers touch WPF DependencyObjects,
+        // so awaits must resume on the captured UI SynchronizationContext. Do NOT add
+        // ConfigureAwait(false) here — RaiseAllDirtyFlags() below must run on the UI thread.
         var oldConfig = _savedConfig;
         var newConfig = _pendingConfig;
 
-        await Host.ConfigStore.SaveAsync(newConfig).ConfigureAwait(false);
+        await Host.ConfigStore.SaveAsync(newConfig);
         Host.UpdateConfig(newConfig);
 
-        await ConfigApplyPipeline.DispatchAsync(oldConfig, newConfig, Host.Registry, ct).ConfigureAwait(false);
+        await ConfigApplyPipeline.DispatchAsync(oldConfig, newConfig, Host.Registry, ct);
 
         _savedConfig  = newConfig;
         _pendingConfig = DeepClone(newConfig);
