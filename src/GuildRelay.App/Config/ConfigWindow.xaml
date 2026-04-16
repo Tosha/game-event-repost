@@ -32,7 +32,7 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="AudioDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
-                        <TextBlock Text="Audio Watcher"/>
+                        <TextBlock Text="Audio Watcher (WIP)"/>
                         <ui:SymbolIcon Symbol="Speaker224" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -42,7 +42,7 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="StatusDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
-                        <TextBlock Text="Status Watcher"/>
+                        <TextBlock Text="Status Watcher (WIP)"/>
                         <ui:SymbolIcon Symbol="Pulse24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
