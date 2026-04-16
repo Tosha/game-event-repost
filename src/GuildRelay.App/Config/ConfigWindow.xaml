@@ -23,6 +23,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="ChatDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Chat Watcher"/>
+                        <ui:SymbolIcon Symbol="Chat24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
                 <local:ChatConfigTab x:Name="ChatTab"/>
@@ -32,6 +33,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="AudioDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Audio Watcher"/>
+                        <ui:SymbolIcon Symbol="Speaker224" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
                 <local:AudioConfigTab x:Name="AudioTab"/>
@@ -41,6 +43,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="StatusDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
                         <TextBlock Text="Status Watcher"/>
+                        <ui:SymbolIcon Symbol="Pulse24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
                 <local:StatusConfigTab x:Name="StatusTab"/>
@@ -49,8 +52,8 @@
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="SettingsDot" Text="●" Foreground="#FFB54C" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" Visibility="Collapsed"/>
-                        <ui:SymbolIcon Symbol="Settings24" Margin="0,0,6,0" FontSize="14"/>
                         <TextBlock Text="Settings"/>
+                        <ui:SymbolIcon Symbol="Settings24" Margin="6,0,0,0" FontSize="14"/>
                     </StackPanel>
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
