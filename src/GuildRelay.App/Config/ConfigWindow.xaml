@@ -62,10 +62,10 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12">
                         <TextBlock Text="Discord webhook URL" FontWeight="SemiBold"
-                                   ToolTip="The webhook URL for the Discord channel your guild uses. GuildRelay posts all detection events here. Create one in Discord via Channel Settings → Integrations → Webhooks. Treat it as a secret — anyone with the URL can post to that channel."/>
+                                   ToolTip="The webhook URL for the Discord channel your guild uses. Game Herald posts all detection events here. Create one in Discord via Channel Settings → Integrations → Webhooks. Treat it as a secret — anyone with the URL can post to that channel."/>
                         <PasswordBox x:Name="WebhookBox" Height="32" Margin="0,4,0,12" PasswordChanged="OnWebhookChanged"/>
                         <TextBlock Text="Player name" FontWeight="SemiBold"
-                                   ToolTip="Your in-game character name. Embedded in every message GuildRelay posts so your guildmates can tell who saw the event."/>
+                                   ToolTip="Your in-game character name. Embedded in every message Game Herald posts so your guildmates can tell who saw the event."/>
                         <TextBox x:Name="PlayerBox" Height="32" Margin="0,4,0,12" TextChanged="OnPlayerNameChanged"/>
                         <StackPanel Orientation="Horizontal">
                             <ui:Button Content="Test webhook" Click="OnTestWebhookClick" Appearance="Primary" Margin="0,0,8,0"/>
@@ -76,7 +76,7 @@
                         <TextBlock Text="Chat Watcher" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8"/>
 
                         <TextBlock Text="Capture interval (seconds)" FontWeight="SemiBold"
-                                   ToolTip="How often GuildRelay screenshots the chat region and runs OCR. Lower values detect events sooner but use more CPU. Typical range: 3–5 seconds."/>
+                                   ToolTip="How often Game Herald screenshots the chat region and runs OCR. Lower values detect events sooner but use more CPU. Typical range: 3–5 seconds."/>
                         <TextBox x:Name="IntervalBox" Width="120" HorizontalAlignment="Left" Margin="0,4,0,8" TextChanged="OnChatAdvancedChanged"/>
 
                         <TextBlock Text="OCR confidence threshold (0.0 - 1.0)" FontWeight="SemiBold"
