@@ -73,4 +73,28 @@ public class CounterRuleCompilerTests
         match.Success.Should().BeTrue();
         match.Value.Should().Be(1);
     }
+
+    private static CounterRule RegexRule(string pattern) => new(
+        Id: "r2", Label: "Glory",
+        Channels: new List<string> { "Game" },
+        Pattern: pattern, MatchMode: CounterMatchMode.Regex);
+
+    [Fact]
+    public void RegexModeExtractsValueFromNamedGroup()
+    {
+        var compiled = CounterRuleCompiler.Compile(
+            RegexRule(@"^You gained (?<value>\d+) Glory\.?$"));
+        var match = compiled.Match("You gained 80 Glory");
+        match.Success.Should().BeTrue();
+        match.Value.Should().Be(80);
+    }
+
+    [Fact]
+    public void RegexModeWithoutValueGroupIsCountOnly()
+    {
+        var compiled = CounterRuleCompiler.Compile(RegexRule(@"^You died\.?$"));
+        var match = compiled.Match("You died.");
+        match.Success.Should().BeTrue();
+        match.Value.Should().Be(1);
+    }
 }
