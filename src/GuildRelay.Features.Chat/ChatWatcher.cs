@@ -40,6 +40,7 @@ public sealed class ChatWatcher : IFeature
     private readonly IStatsAggregator _stats;
     private readonly string _playerName;
     private readonly ChatDedup _dedup = new(capacity: 256);
+    private readonly ChatDedup _counterDedup = new(capacity: 256);
     private readonly CooldownTracker _cooldown = new();
     private AssembledMessage? _deferredTrailing;
     private ChatConfig _config;
@@ -82,6 +83,7 @@ public sealed class ChatWatcher : IFeature
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _dedup.Clear();
+        _counterDedup.Clear();
         _cooldown.Reset();
         _deferredTrailing = null;
         Status = FeatureStatus.Running;
@@ -224,10 +226,43 @@ public sealed class ChatWatcher : IFeature
                 var counter = counterMatcher.Match(parsed);
                 if (counter is not null)
                 {
-                    _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
-                    debug?.MatchResults.Add(
-                        $"COUNTED [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
-                        $"{msg.OriginalText}");
+                    // Counter-specific dedup keyed on STRUCTURED fields only —
+                    // channel, in-game timestamp, label, value. The body-based
+                    // chat dedup above can miss when OCR produces a slightly
+                    // different body for the same chat line across ticks (e.g.
+                    // a dropped trailing period that the rule's regex still
+                    // tolerates). Structured data survives that variation.
+                    //
+                    // Skipped when no in-game timestamp is parsed; in that case
+                    // the body-based chat dedup is the only safety net.
+                    //
+                    // Tradeoff: two genuinely distinct events with the same
+                    // (channel, label, value) at the same in-game second are
+                    // deduped to one. In-game chat timestamp resolution is 1s
+                    // and counter rules typically fire on per-kill timescales,
+                    // so this is acceptable.
+                    bool counterDeduped = false;
+                    if (!string.IsNullOrEmpty(parsed.Timestamp))
+                    {
+                        var counterKey =
+                            $"{parsed.Channel}{sep}{parsed.Timestamp}{sep}{counter.Label}{sep}" +
+                            counter.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                        if (_counterDedup.IsDuplicate(counterKey))
+                        {
+                            counterDeduped = true;
+                            debug?.MatchResults.Add(
+                                $"COUNTED-DEDUP [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
+                                $"{msg.OriginalText}");
+                        }
+                    }
+
+                    if (!counterDeduped)
+                    {
+                        _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
+                        debug?.MatchResults.Add(
+                            $"COUNTED [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
+                            $"{msg.OriginalText}");
+                    }
                 }
             }
 
