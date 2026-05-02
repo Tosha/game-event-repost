@@ -51,7 +51,8 @@ public sealed class ConfigStore
                 return AppConfig.Default;
             }
 
-            return SanitizeIntervals(loaded);
+            var migrated = await MigrateLegacyChatFieldsAsync(loaded).ConfigureAwait(false);
+            return SanitizeIntervals(migrated);
         }
         catch (JsonException)
         {
@@ -80,6 +81,36 @@ public sealed class ConfigStore
             status = status with { CaptureIntervalSec = StatusConfig.Default.CaptureIntervalSec };
 
         return cfg with { Chat = chat, Status = status };
+    }
+
+    // Pre-rename configs serialise the chat toggle as `enabled`. The new schema uses
+    // `eventRepostEnabled` + `statsEnabled` + `counterRules`. STJ silently leaves the
+    // new properties at their default values when the legacy field is present.
+    // Detect that case and fix it by reading the raw JSON.
+    private async Task<AppConfig> MigrateLegacyChatFieldsAsync(AppConfig loaded)
+    {
+        var raw = await File.ReadAllTextAsync(_path).ConfigureAwait(false);
+        using var doc = System.Text.Json.JsonDocument.Parse(raw);
+        if (!doc.RootElement.TryGetProperty("chat", out var chatEl)) return loaded;
+
+        var chat = loaded.Chat;
+        bool changed = false;
+
+        if (!chatEl.TryGetProperty("eventRepostEnabled", out _)
+            && chatEl.TryGetProperty("enabled", out var enabledEl)
+            && enabledEl.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
+        {
+            chat = chat with { EventRepostEnabled = enabledEl.GetBoolean() };
+            changed = true;
+        }
+
+        if (!chatEl.TryGetProperty("counterRules", out _) || chat.CounterRules.Count == 0)
+        {
+            chat = chat with { CounterRules = new System.Collections.Generic.List<CounterRule>(ChatConfig.Default.CounterRules) };
+            changed = true;
+        }
+
+        return changed ? loaded with { Chat = chat } : loaded;
     }
 
     public async Task SaveAsync(AppConfig config)
