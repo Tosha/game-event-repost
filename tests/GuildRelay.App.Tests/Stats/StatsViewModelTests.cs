@@ -99,4 +99,19 @@ public class StatsViewModelTests
 
         vm.Rows.Should().AllSatisfy(r => r.Total.Should().Be(0));
     }
+
+    [Fact]
+    public void OrphanCounterWithDataAppearsAfterRuleIsRemoved()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 80, T0);
+
+        // Rules list is now empty — simulates the user deleting the rule after data was recorded.
+        var vm = new StatsViewModel(agg, () => T0, () => System.Array.Empty<CounterRule>(), () => true);
+        vm.Refresh();
+
+        vm.Rows.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new CounterRowVm("Glory", 80, 80));
+        vm.HasNoRules.Should().BeFalse();
+    }
 }
