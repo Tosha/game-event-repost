@@ -114,4 +114,33 @@ public class StatsAggregatorTests
             s.Last60Min.Should().Be(0);
         });
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ConcurrentRecordAndSnapshotIsSafe()
+    {
+        var agg = new StatsAggregator();
+        var stop = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        var writer = System.Threading.Tasks.Task.Run(() =>
+        {
+            var t = T0;
+            while (!stop.IsCancellationRequested)
+            {
+                agg.Record("Glory", 1, t);
+                t = t.AddMilliseconds(1);
+            }
+        });
+
+        var reader = System.Threading.Tasks.Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                _ = agg.Snapshot(T0.AddMinutes(30));
+            }
+        });
+
+        await System.Threading.Tasks.Task.WhenAll(writer, reader);
+        var final = agg.Snapshot(T0.AddMinutes(30));
+        final.Should().ContainSingle().Which.Total.Should().BeGreaterThan(0);
+    }
 }
