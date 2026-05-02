@@ -143,4 +143,89 @@ public class StatsAggregatorTests
         var final = agg.Snapshot(T0.AddMinutes(30));
         final.Should().ContainSingle().Which.Total.Should().BeGreaterThan(0);
     }
+
+    [Fact]
+    public void SessionStartIsCapturedAtConstruction()
+    {
+        // Inject a fixed-time clock so the test is deterministic. The aggregator
+        // should capture SessionStart at construction time.
+        var t0 = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var agg = new StatsAggregator(() => t0);
+
+        agg.SessionStart.Should().Be(t0);
+    }
+
+    [Fact]
+    public void SessionStartIsCapturedAtConstructionWithDefaultClock()
+    {
+        // Default constructor uses DateTimeOffset.UtcNow. Confirm SessionStart
+        // is set to roughly "now" — tolerance of a few seconds for slow CI hosts.
+        var before = DateTimeOffset.UtcNow;
+        var agg = new StatsAggregator();
+        var after = DateTimeOffset.UtcNow;
+
+        agg.SessionStart.Should().BeOnOrAfter(before);
+        agg.SessionStart.Should().BeOnOrBefore(after);
+    }
+
+    [Fact]
+    public void RecordDoesNotChangeSessionStart()
+    {
+        var t0 = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var agg = new StatsAggregator(() => t0);
+
+        agg.Record("Glory", 80, t0.AddSeconds(1));
+        agg.Record("Glory", 20, t0.AddSeconds(2));
+
+        agg.SessionStart.Should().Be(t0);
+    }
+
+    [Fact]
+    public void ResetUpdatesSessionStart()
+    {
+        var t0 = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var t1 = t0.AddMinutes(5);
+        DateTimeOffset clockValue = t0;
+        var agg = new StatsAggregator(() => clockValue);
+
+        agg.Record("Glory", 80, t0);
+        clockValue = t1;
+        agg.Reset("Glory");
+
+        agg.SessionStart.Should().Be(t1);
+    }
+
+    [Fact]
+    public void ResetAllUpdatesSessionStart()
+    {
+        var t0 = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var t1 = t0.AddMinutes(5);
+        DateTimeOffset clockValue = t0;
+        var agg = new StatsAggregator(() => clockValue);
+
+        agg.Record("Glory", 80, t0);
+        agg.Record("Standing", 5, t0);
+        clockValue = t1;
+        agg.ResetAll();
+
+        agg.SessionStart.Should().Be(t1);
+    }
+
+    [Fact]
+    public void ResetForUnknownLabelStillUpdatesSessionStart()
+    {
+        // Spec: "any reset drops the timer" — including a Reset on a counter
+        // that has no events recorded yet (the dictionary lookup misses).
+        // Otherwise, Reset on an empty row would be inconsistent with Reset
+        // on a populated row.
+        var t0 = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var t1 = t0.AddSeconds(30);
+        DateTimeOffset clockValue = t0;
+        var agg = new StatsAggregator(() => clockValue);
+
+        clockValue = t1;
+        agg.Reset("NonexistentCounter");
+
+        agg.SessionStart.Should().Be(t1);
+    }
 }

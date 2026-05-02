@@ -28,6 +28,7 @@ public partial class StatsWindow : Wpf.Ui.Controls.FluentWindow
         _vm.Refresh();
         CounterGrid.ItemsSource = _vm.Rows;
         BadgeText.Text = _vm.BadgeState;
+        SessionTimerText.Text = "Session: " + _vm.SessionElapsedText;
         EmptyHint.Visibility = _vm.HasNoRules ? Visibility.Visible : Visibility.Collapsed;
         CounterGrid.Visibility       = _vm.HasNoRules ? Visibility.Collapsed : Visibility.Visible;
     }

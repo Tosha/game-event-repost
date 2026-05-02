@@ -46,6 +46,10 @@
             <CheckBox x:Name="AlwaysOnTopCheck" Content="Always on top"
                       Margin="0,0,16,0" VerticalAlignment="Center"
                       Checked="OnAlwaysOnTopChanged" Unchecked="OnAlwaysOnTopChanged"/>
+            <TextBlock x:Name="SessionTimerText" VerticalAlignment="Center"
+                       Margin="16,0,16,0"
+                       Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                       Text="Session: 0:00"/>
             <TextBlock x:Name="BadgeText" VerticalAlignment="Center"
                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                        Text="Stats: OFF"/>
