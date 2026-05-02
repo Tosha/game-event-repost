@@ -79,4 +79,39 @@ public class StatsAggregatorTests
         snap.Should().ContainSingle()
             .Which.Last60Min.Should().Be(0);
     }
+
+    [Fact]
+    public void ResetClearsTotalAndRollingHistoryForOneLabel()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 80, T0);
+        agg.Record("Standing", 5, T0);
+
+        agg.Reset("Glory");
+
+        var snap = agg.Snapshot(T0);
+        snap.Should().HaveCount(2);
+        var glory    = System.Linq.Enumerable.Single(snap, s => s.Label == "Glory");
+        var standing = System.Linq.Enumerable.Single(snap, s => s.Label == "Standing");
+        glory.Total.Should().Be(0);
+        glory.Last60Min.Should().Be(0);
+        standing.Total.Should().Be(5);
+    }
+
+    [Fact]
+    public void ResetAllClearsAllCounters()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 80, T0);
+        agg.Record("Standing", 5, T0);
+
+        agg.ResetAll();
+
+        var snap = agg.Snapshot(T0);
+        snap.Should().AllSatisfy(s =>
+        {
+            s.Total.Should().Be(0);
+            s.Last60Min.Should().Be(0);
+        });
+    }
 }
