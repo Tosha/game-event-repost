@@ -12,6 +12,7 @@ public partial class CounterRuleEditorWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly Dictionary<string, CheckBox> _channelChecks = new();
     private CounterRule? _result;
+    private string? _existingId;
 
     private CounterRuleEditorWindow() { InitializeComponent(); }
 
@@ -24,6 +25,7 @@ public partial class CounterRuleEditorWindow : Wpf.Ui.Controls.FluentWindow
 
     private void Initialize(CounterRule? existing)
     {
+        _existingId = existing?.Id;
         ChannelPanel.Children.Clear();
         _channelChecks.Clear();
         foreach (var ch in ChatLineParser.KnownChannelNames)
@@ -88,7 +90,7 @@ public partial class CounterRuleEditorWindow : Wpf.Ui.Controls.FluentWindow
         var mode = RegexRadio.IsChecked == true ? CounterMatchMode.Regex : CounterMatchMode.Template;
 
         _result = new CounterRule(
-            Id: Guid.NewGuid().ToString("N"),
+            Id: _existingId ?? Guid.NewGuid().ToString("N"),
             Label: label,
             Channels: channels,
             Pattern: pattern,
