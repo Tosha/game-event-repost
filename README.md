@@ -1,16 +1,16 @@
-# GuildRelay
+# Game Herald
 
 [![CI](https://github.com/Tosha/game-event-repost/actions/workflows/ci.yml/badge.svg)](https://github.com/Tosha/game-event-repost/actions/workflows/ci.yml)
 [![Release](https://github.com/Tosha/game-event-repost/actions/workflows/release.yml/badge.svg)](https://github.com/Tosha/game-event-repost/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Windows desktop companion app for **Mortal Online 2** guilds. GuildRelay watches your game session from the outside and posts notable events to a shared Discord channel, giving guildmates real-time situational awareness even when they are offline or focused elsewhere.
+A Windows desktop companion app for **Mortal Online 2** guilds. Game Herald watches your game session from the outside and posts notable events to a shared Discord channel, giving guildmates real-time situational awareness even when they are offline or focused elsewhere.
 
 ## Download
 
 **[Download the latest release](https://github.com/Tosha/game-event-repost/releases/latest)** -- a single `.exe`, no installer required.
 
-1. Download `GuildRelay-win-x64.zip` from the link above and extract it.
+1. Download `GameHerald-win-x64.zip` from the link above and extract it.
 2. Run `GuildRelay.App.exe`.
    - Windows may show a SmartScreen warning for the first launch. Click **"More info"** then **"Run anyway"**. This only happens once.
 3. The config window opens automatically. Paste your guild's Discord webhook URL and enter your player name.
@@ -18,7 +18,7 @@ A Windows desktop companion app for **Mortal Online 2** guilds. GuildRelay watch
 
 ## What it does
 
-GuildRelay runs quietly in your system tray and monitors three things:
+Game Herald runs quietly in your system tray and monitors three things:
 
 - **Chat Watcher** -- Captures a region of your screen where the in-game chat window is displayed, reads it with OCR, and posts to Discord when it spots keywords on specific chat channels.
 - **Audio Watcher** -- Listens to your system audio output and matches it against short reference clips you provide (e.g. a horse whinny, combat music sting). When a match is detected, Discord gets a notification.
@@ -52,7 +52,7 @@ Chat Watcher captures a region of your screen, runs OCR on it, and posts to Disc
 
 ### Live View
 
-The **Live View** button on the Chat Watcher tab opens a debug window that lets you see exactly what GuildRelay is doing every capture interval:
+The **Live View** button on the Chat Watcher tab opens a debug window that lets you see exactly what Game Herald is doing every capture interval:
 
 - **Captured region (raw)** -- the exact pixels just grabbed from your chat region, with nearest-neighbor scaling so OCR-relevant detail isn't blurred away.
 - **OCR output → parsed channel → normalized** -- every line OCR produced, tagged as a channel header (e.g. `[GAME]`, `[GUILD]`), a continuation of the previous line (`↳`), or skipped, and shown alongside its normalized form (the text actually used for matching).
@@ -64,7 +64,7 @@ Use Live View whenever you're tuning the captured region or trying to figure out
 
 ### MO2 chat channels
 
-GuildRelay recognizes all MO2 chat channels:
+Game Herald recognizes all MO2 chat channels:
 
 | Channel | Typical content |
 |---|---|
@@ -121,11 +121,11 @@ Use the **Test a message against your rules** field at the bottom of the Chat Wa
 
 ## Anti-cheat safety
 
-**GuildRelay does not read, modify, or interact with the Mortal Online 2 process in any way.**
+**Game Herald does not read, modify, or interact with the Mortal Online 2 process in any way.**
 
-Mortal Online 2 ships with EasyAntiCheat. GuildRelay is designed from the ground up to be fully compatible by using only standard, external Windows APIs that any normal desktop application would use:
+Mortal Online 2 ships with EasyAntiCheat. Game Herald is designed from the ground up to be fully compatible by using only standard, external Windows APIs that any normal desktop application would use:
 
-| What GuildRelay does | How it works | Touches MO2? |
+| What Game Herald does | How it works | Touches MO2? |
 |---|---|---|
 | Screen capture | GDI BitBlt from the Windows desktop -- the same API screenshot tools use | No |
 | OCR | Windows.Media.Ocr (built into Windows 10/11) reading pixel buffers | No |
@@ -134,7 +134,7 @@ Mortal Online 2 ships with EasyAntiCheat. GuildRelay is designed from the ground
 | Discord posting | Standard HTTPS POST to a Discord webhook URL | No |
 | DPI/resolution detection | Standard Win32 monitor enumeration for drift detection | No |
 
-**What GuildRelay explicitly does NOT do:**
+**What Game Herald explicitly does NOT do:**
 
 - No `OpenProcess`, `ReadProcessMemory`, `WriteProcessMemory`, or any process-memory API targeting MO2
 - No `SetWindowsHookEx`, `SendInput`, `keybd_event`, `mouse_event`, or any input injection
@@ -143,7 +143,7 @@ Mortal Online 2 ships with EasyAntiCheat. GuildRelay is designed from the ground
 - No packet capture or network inspection of MO2 traffic
 - No `FindWindow` / `EnumWindows` lookups that identify or interact with the MO2 window
 
-GuildRelay captures what your monitor shows and what your speakers play. It is equivalent to having a friend watch your screen over your shoulder and type into Discord for you.
+Game Herald captures what your monitor shows and what your speakers play. It is equivalent to having a friend watch your screen over your shoulder and type into Discord for you.
 
 ## Configuration
 
@@ -156,7 +156,7 @@ All settings are stored locally at `%APPDATA%\GuildRelay\config.json`. The webho
 - **OCR confidence threshold**: Lines below this OCR confidence are silently dropped (default: 0.65). Set on the Settings tab.
 - **Rules**: Channel-aware rules with checkboxes for MO2 channels and comma-separated keywords. See "Adding and editing rules" above.
 - **Pause between Discord notifications** (per rule): After a rule fires, it stays silent this many seconds before it can fire again (default: 600 = 10 minutes). The Settings tab carries the default; each rule can override it in the rule editor. Prevents OCR noise or a lingering chat message from spamming Discord.
-- **Line joining**: OCR sometimes splits a long chat message across two lines. GuildRelay automatically joins adjacent lines when matching, so keywords like "Dire Wolf" work even if OCR splits them across lines.
+- **Line joining**: OCR sometimes splits a long chat message across two lines. Game Herald automatically joins adjacent lines when matching, so keywords like "Dire Wolf" work even if OCR splits them across lines.
 
 ### Audio Watcher
 
@@ -214,7 +214,7 @@ The Core project has zero Windows dependencies and is testable on any platform. 
 
 ## Privacy
 
-- **No telemetry, no analytics, no cloud backend.** GuildRelay communicates only with Discord via the webhook URL you provide.
+- **No telemetry, no analytics, no cloud backend.** Game Herald communicates only with Discord via the webhook URL you provide.
 - **No microphone access.** Audio capture is WASAPI loopback only (system output).
 - **No auto-update.** You control when and whether to update.
 - **Webhook URL is a secret.** It is never written to logs, never embedded in events, and never transmitted anywhere except Discord.
