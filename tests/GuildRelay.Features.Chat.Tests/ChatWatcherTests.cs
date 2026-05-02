@@ -154,9 +154,15 @@ public class ChatWatcherTests
             new("[Nave] [Someone] inc north", 0.9f, RectangleF.Empty),
         };
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+        // 3500ms (rather than 2500ms) is intentional: the test depends on TWO
+        // PeriodicTimer ticks firing within the window. Slow CI hosts can delay
+        // the second tick past a tighter deadline, leaving the deferred trailing
+        // unemitted and the bus empty. ~1.5s of headroom past the second tick's
+        // scheduled time (t=2s) brings reliability in line with the single-tick
+        // tests in this file. The 4s CTS timeout was already permissive enough.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(2500);  // ~2 ticks at 1s interval
+        await Task.Delay(3500);  // ~2 ticks at 1s interval, with CI-host headroom
         await watcher.StopAsync();
         bus.Complete();
 
@@ -187,9 +193,11 @@ public class ChatWatcherTests
             new("[Nave] [Other]    terminator ok",  0.9f, RectangleF.Empty),
         };
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+        // 3500ms (not 2500) for the 2-tick wait — see the timing comment in
+        // LastMessageIsDeferredOneTickThenEmitted.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(2500);  // ~2 ticks
+        await Task.Delay(3500);
         await watcher.StopAsync();
         bus.Complete();
 
