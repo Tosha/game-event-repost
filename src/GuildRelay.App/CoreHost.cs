@@ -6,6 +6,7 @@ using GuildRelay.Core.Config;
 using GuildRelay.Core.Events;
 using GuildRelay.Core.Features;
 using GuildRelay.Core.Security;
+using GuildRelay.Core.Stats;
 using GuildRelay.Logging;
 using GuildRelay.Publisher;
 using Serilog;
@@ -23,7 +24,8 @@ public sealed class CoreHost : IAsyncDisposable
         EventLog eventLog,
         ILogger logger,
         DiscordPublisher publisher,
-        FeatureRegistry registry)
+        FeatureRegistry registry,
+        IStatsAggregator statsAggregator)
     {
         AppDataDirectory = appDataDirectory;
         ConfigStore = configStore;
@@ -34,6 +36,7 @@ public sealed class CoreHost : IAsyncDisposable
         Logger = logger;
         Publisher = publisher;
         Registry = registry;
+        StatsAggregator = statsAggregator;
     }
 
     public string AppDataDirectory { get; }
@@ -45,6 +48,7 @@ public sealed class CoreHost : IAsyncDisposable
     public ILogger Logger { get; }
     public DiscordPublisher Publisher { get; }
     public FeatureRegistry Registry { get; }
+    public IStatsAggregator StatsAggregator { get; }
 
     public static async Task<CoreHost> CreateAsync()
     {
@@ -79,6 +83,7 @@ public sealed class CoreHost : IAsyncDisposable
             new TemplateEngine(),
             templateByFeatureId: templates);
 
+        var statsAggregator = new StatsAggregator();
         var registry = new FeatureRegistry();
 
         // Register Chat Watcher
@@ -88,7 +93,7 @@ public sealed class CoreHost : IAsyncDisposable
             config.Chat.PreprocessPipeline);
         var chatPipeline = new Features.Chat.Preprocessing.PreprocessPipeline(chatStages);
         var chatWatcher = new Features.Chat.ChatWatcher(
-            chatCapture, chatOcr, chatPipeline, bus, config.Chat, config.General.PlayerName);
+            chatCapture, chatOcr, chatPipeline, bus, statsAggregator, config.Chat, config.General.PlayerName);
         registry.Register(chatWatcher);
 
         if ((config.Chat.EventRepostEnabled || config.Chat.StatsEnabled) && !config.Chat.Region.IsEmpty)
@@ -142,7 +147,7 @@ public sealed class CoreHost : IAsyncDisposable
         });
 
         logger.Information("CoreHost initialized at {Path}", appData);
-        return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry);
+        return new CoreHost(appData, configStore, config, secrets, bus, eventLog, logger, publisher, registry, statsAggregator);
     }
 
     public void UpdateConfig(AppConfig newConfig)
