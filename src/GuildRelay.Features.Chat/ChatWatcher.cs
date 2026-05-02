@@ -33,6 +33,10 @@ public sealed class ChatTickDebugInfo
 
 public sealed class ChatWatcher : IFeature
 {
+    // U+001F (Unit Separator) cannot appear in OCR output or user text, so it
+    // is safe to use as a field delimiter inside dedup keys.
+    private const string DedupKeySeparator = "\x1F";
+
     private readonly IScreenCapture _capture;
     private readonly IOcrEngine _ocr;
     private readonly PreprocessPipeline _pipeline;
@@ -207,63 +211,24 @@ public sealed class ChatWatcher : IFeature
             var fromBuffer = (i == 0) && previousWasEmittedFromBuffer;
             var prefix = fromBuffer ? "EMITTED-DEFERRED" : "EMITTED";
 
-            // U+001F (Unit Separator) cannot appear in OCR output or user text, so
-            // it is safe to use as a field delimiter in the dedup key.
-            const string sep = "\x1F";
-            var dedupKey = $"{msg.Channel}{sep}{msg.PlayerName}{sep}{msg.Timestamp}{sep}{msg.Body}";
+            var parsed = msg.ToParsedChatLine();
+
+            // Stats pipeline runs INDEPENDENTLY of the chat dedup. The structured
+            // counter-key dedup ((channel, in-game timestamp, label, value)) is
+            // strictly more precise for analytics than the body-based chat dedup
+            // and has equivalent or better coverage of cross-tick re-OCR.
+            if (_config.StatsEnabled)
+                RunCounterPipeline(msg, parsed, counterMatcher, debug, eager: false);
+
+            // Chat dedup gates the EVENT REPOST pipeline only.
+            var dedupKey =
+                $"{msg.Channel}{DedupKeySeparator}{msg.PlayerName}{DedupKeySeparator}" +
+                $"{msg.Timestamp}{DedupKeySeparator}{msg.Body}";
             if (_dedup.IsDuplicate(dedupKey))
             {
                 debug?.MatchResults.Add(
                     $"DEDUP [rows {msg.StartRow}-{msg.EndRow}]: {msg.OriginalText}");
                 continue;
-            }
-
-            var parsed = msg.ToParsedChatLine();
-
-            // Stats pipeline (independent of Event Repost).
-            if (_config.StatsEnabled)
-            {
-                var counter = counterMatcher.Match(parsed);
-                if (counter is not null)
-                {
-                    // Counter-specific dedup keyed on STRUCTURED fields only —
-                    // channel, in-game timestamp, label, value. The body-based
-                    // chat dedup above can miss when OCR produces a slightly
-                    // different body for the same chat line across ticks (e.g.
-                    // a dropped trailing period that the rule's regex still
-                    // tolerates). Structured data survives that variation.
-                    //
-                    // Skipped when no in-game timestamp is parsed; in that case
-                    // the body-based chat dedup is the only safety net.
-                    //
-                    // Tradeoff: two genuinely distinct events with the same
-                    // (channel, label, value) at the same in-game second are
-                    // deduped to one. In-game chat timestamp resolution is 1s
-                    // and counter rules typically fire on per-kill timescales,
-                    // so this is acceptable.
-                    bool counterDeduped = false;
-                    if (!string.IsNullOrEmpty(parsed.Timestamp))
-                    {
-                        var counterKey =
-                            $"{parsed.Channel}{sep}{parsed.Timestamp}{sep}{counter.Label}{sep}" +
-                            counter.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-                        if (_counterDedup.IsDuplicate(counterKey))
-                        {
-                            counterDeduped = true;
-                            debug?.MatchResults.Add(
-                                $"COUNTED-DEDUP [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
-                                $"{msg.OriginalText}");
-                        }
-                    }
-
-                    if (!counterDeduped)
-                    {
-                        _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
-                        debug?.MatchResults.Add(
-                            $"COUNTED [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
-                            $"{msg.OriginalText}");
-                    }
-                }
             }
 
             // Event Repost pipeline — only runs when enabled.
@@ -296,8 +261,74 @@ public sealed class ChatWatcher : IFeature
             await _bus.PublishAsync(evt, ct).ConfigureAwait(false);
         }
 
+        // Eager-emit pass: process the current tick's TRAILING message through
+        // the counter pipeline immediately, instead of waiting for the next
+        // tick's DeferredTrailing.Resolve to confirm/extend it. This keeps the
+        // Stats window up-to-date with one capture-tick of latency rather than
+        // two for any event that lands as the last visible chat line.
+        //
+        // The counter dedup catches the inevitable second visit when the
+        // trailing later moves into Completed (or comes back as the previous-
+        // tick's trailing) — same key, no double count.
+        //
+        // Skipped when the trailing has no parsed in-game timestamp, because
+        // the structured counter dedup key is keyed on timestamp; without one
+        // we cannot reliably suppress the re-visit, so we let the standard
+        // (non-eager) path handle it on the next tick.
+        if (_config.StatsEnabled
+            && newBuffer is not null
+            && !string.IsNullOrEmpty(newBuffer.Timestamp))
+        {
+            var trailingParsed = newBuffer.ToParsedChatLine();
+            RunCounterPipeline(newBuffer, trailingParsed, counterMatcher, debug, eager: true);
+        }
+
         if (debug is not null &&
             (debug.OcrLines.Count > 0 || debug.MatchResults.Count > 0))
             DebugTick?.Invoke(debug);
+    }
+
+    /// <summary>
+    /// Tries to match a counter rule against the parsed chat line and record it
+    /// to the stats aggregator. Independent of the body-based chat dedup; uses
+    /// its own structured-key dedup ((channel, in-game timestamp, label, value))
+    /// to suppress cross-tick re-OCR. Skips dedup entirely when the message has
+    /// no parsed in-game timestamp.
+    ///
+    /// Tradeoff: two genuinely distinct events with the same (channel, label,
+    /// value) at the same in-game second are deduped to one. In-game chat
+    /// timestamp resolution is 1s and counter rules typically fire on per-kill
+    /// timescales, so this is acceptable.
+    /// </summary>
+    private void RunCounterPipeline(
+        AssembledMessage msg,
+        ParsedChatLine parsed,
+        CounterMatcher counterMatcher,
+        ChatTickDebugInfo? debug,
+        bool eager)
+    {
+        var counter = counterMatcher.Match(parsed);
+        if (counter is null) return;
+
+        if (!string.IsNullOrEmpty(parsed.Timestamp))
+        {
+            var counterKey =
+                $"{parsed.Channel}{DedupKeySeparator}{parsed.Timestamp}{DedupKeySeparator}" +
+                $"{counter.Label}{DedupKeySeparator}" +
+                counter.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            if (_counterDedup.IsDuplicate(counterKey))
+            {
+                debug?.MatchResults.Add(
+                    $"COUNTED-DEDUP [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
+                    $"{msg.OriginalText}");
+                return;
+            }
+        }
+
+        _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
+        var prefix = eager ? "COUNTED-EAGER" : "COUNTED";
+        debug?.MatchResults.Add(
+            $"{prefix} [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
+            $"{msg.OriginalText}");
     }
 }
