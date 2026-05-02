@@ -9,6 +9,7 @@
         <tb:TaskbarIcon.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="Open Config"      Click="OnOpenConfig"/>
+                <MenuItem Header="View Stats"       Click="OnOpenStats"/>
                 <MenuItem Header="View Logs folder" Click="OnOpenLogs"/>
                 <Separator/>
                 <MenuItem Header="Quit"             Click="OnQuit"/>
