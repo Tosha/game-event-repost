@@ -67,7 +67,7 @@ The other secondary windows (`RuleEditorWindow`, `CounterRuleEditorWindow`, `Deb
 
 ### 4.1 Concept
 
-A swallow-tail heraldic pennant on a vertical pole. Single solid color (gold `#D4AF37`) on a transparent background so the icon adapts to light and dark Windows themes.
+A swallow-tail heraldic pennant on a vertical pole. Two-color palette — heraldic red (`#C8102E`, gules) for the pennant and pure black (`#000000`) for the pole — on a transparent background. The high-contrast red/black silhouette reads cleanly at 16 × 16 in light Windows themes; users on dark themes may see the black pole blend into the system tray, but the red pennant remains clearly visible regardless.
 
 ```
    .
@@ -85,7 +85,7 @@ A swallow-tail heraldic pennant on a vertical pole. Single solid color (gold `#D
 - **Resolutions packed into the `.ico`:** 16 × 16, 24 × 24, 32 × 32, 48 × 48, 64 × 64, 256 × 256.
 - **Pole:** 1 px wide at 16 × 16, scaling linearly with size (so 16 px at 256 × 256). Full canvas height. Positioned at canvas-x ≈ 25%.
 - **Pennant:** triangular flag attached at the pole's top. Width ≈ 65% of canvas. Height ≈ 35% of canvas. The fly end (right side) has a triangular V-notch cut in to make the swallow-tail shape.
-- **Color:** `#D4AF37` (gold) for pole and pennant. Background fully transparent.
+- **Colors:** Pole `#000000` (black), pennant `#C8102E` (heraldic red / gules). Background fully transparent.
 - **No text or interior detail.** At 16 × 16, even a single glyph is illegible.
 
 ### 4.3 Implementation tooling
