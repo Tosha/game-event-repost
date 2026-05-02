@@ -41,9 +41,8 @@ public static class CounterRuleCompiler
         const RegexOptions Opts = RegexOptions.Compiled | RegexOptions.IgnoreCase;
         if (rule.MatchMode == CounterMatchMode.Template)
         {
-            var pattern = rule.Pattern;
-            var hasPlaceholder = pattern.Contains(ValuePlaceholder);
-            var parts = pattern.Split(new[] { ValuePlaceholder }, System.StringSplitOptions.None);
+            var parts = rule.Pattern.Split(ValuePlaceholder);
+            var hasPlaceholder = parts.Length > 1;
             var compiled = string.Join(ValueRegexFragment,
                 System.Linq.Enumerable.Select(parts, Regex.Escape));
             return new CompiledCounterRule(rule, new Regex("^" + compiled + "$", Opts), hasPlaceholder);
