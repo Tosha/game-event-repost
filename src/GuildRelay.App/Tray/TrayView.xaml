@@ -5,7 +5,7 @@
         ShowInTaskbar="False" Visibility="Hidden" WindowStyle="None"
         Width="0" Height="0">
     <tb:TaskbarIcon IconSource="pack://application:,,,/Assets/tray.ico"
-                    ToolTipText="GuildRelay">
+                    ToolTipText="Game Herald">
         <tb:TaskbarIcon.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="Open Config"      Click="OnOpenConfig"/>
