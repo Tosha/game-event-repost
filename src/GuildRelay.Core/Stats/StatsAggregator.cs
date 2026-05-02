@@ -8,8 +8,23 @@ public sealed class StatsAggregator : IStatsAggregator
     private readonly object _lock = new();
     private readonly Dictionary<string, CounterState> _counters =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly Func<DateTimeOffset> _clock;
+    private DateTimeOffset _sessionStart;
 
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(60);
+
+    public StatsAggregator() : this(() => DateTimeOffset.UtcNow) { }
+
+    public StatsAggregator(Func<DateTimeOffset> clock)
+    {
+        _clock = clock;
+        _sessionStart = clock();
+    }
+
+    public DateTimeOffset SessionStart
+    {
+        get { lock (_lock) return _sessionStart; }
+    }
 
     public void Record(string label, double value, DateTimeOffset at)
     {
