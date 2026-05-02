@@ -144,6 +144,7 @@ public sealed class ChatWatcher : IFeature
             ct).ConfigureAwait(false);
 
         var matcher = _matcher;
+        var counterMatcher = _counterMatcher;
 
         var debug = DebugTick is not null ? new ChatTickDebugInfo
         {
@@ -220,7 +221,7 @@ public sealed class ChatWatcher : IFeature
             // Stats pipeline (independent of Event Repost).
             if (_config.StatsEnabled)
             {
-                var counter = _counterMatcher.Match(parsed);
+                var counter = counterMatcher.Match(parsed);
                 if (counter is not null)
                 {
                     _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
