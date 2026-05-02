@@ -4,28 +4,35 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="12">
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <ui:ToggleSwitch x:Name="EnabledToggle" IsChecked="False" Checked="OnEnabledChanged" Unchecked="OnEnabledChanged"/>
-                <TextBlock Text="Chat Watcher" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,0"/>
-                <ui:Button Content="Live View" Click="OnOpenLiveView" Margin="16,0,0,0" FontSize="11"/>
-            </StackPanel>
 
-            <TextBlock Text="Chat region" FontWeight="SemiBold"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+            <!-- Capture (shared) -->
+            <TextBlock Text="Capture (shared)" FontWeight="SemiBold" FontSize="14"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
                 <ui:Button Content="Pick region" Click="OnPickRegion" Margin="0,0,8,0"/>
                 <TextBlock x:Name="RegionLabel" VerticalAlignment="Center"
                            Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                            Text="No region selected"/>
+                <ui:Button Content="Live View" Click="OnOpenLiveView" Margin="16,0,0,0" FontSize="11"/>
             </StackPanel>
 
-            <!-- Rule templates -->
+            <Separator Margin="0,8,0,12"/>
+
+            <!-- Event Repost -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <ui:ToggleSwitch x:Name="EventRepostToggle" IsChecked="False"
+                                 Checked="OnEventRepostChanged" Unchecked="OnEventRepostChanged"/>
+                <TextBlock Text="Event Repost" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,0"/>
+            </StackPanel>
+            <TextBlock Text="Match chat lines and post to Discord."
+                       Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,0,0,8"/>
+
             <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
                 <ComboBox x:Name="TemplateCombo" Width="220" Margin="0,0,8,0"/>
                 <ui:Button Content="Load Template" Click="OnLoadTemplate"/>
             </StackPanel>
 
-            <!-- Active rules list with action buttons -->
             <DockPanel Margin="0,0,0,4">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <ui:Button Content="+" Click="OnAddRule" Width="32" Margin="4,0,0,0" ToolTip="Add rule"/>
@@ -34,11 +41,10 @@
                 </StackPanel>
                 <TextBlock Text="Active rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </DockPanel>
-            <ListBox x:Name="RulesList" Height="140" Margin="0,4,0,12"
+            <ListBox x:Name="RulesList" Height="120" Margin="0,4,0,12"
                      SelectionChanged="OnRulesListSelectionChanged"
                      MouseDoubleClick="OnRulesListDoubleClick"/>
 
-            <!-- Test message -->
             <TextBlock Text="Test a message against your rules" FontWeight="SemiBold" Margin="0,8,0,0"/>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
                 <TextBox x:Name="TestMessageBox" Width="350" Margin="0,0,8,0" FontFamily="Consolas"/>
@@ -46,6 +52,31 @@
             </StackPanel>
             <TextBlock x:Name="TestResultText" Margin="0,4,0,0"
                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
+            <Separator Margin="0,16,0,12"/>
+
+            <!-- Stats -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <ui:ToggleSwitch x:Name="StatsToggle" IsChecked="False"
+                                 Checked="OnStatsChanged" Unchecked="OnStatsChanged"/>
+                <TextBlock Text="Stats" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="8,0,0,0"/>
+                <ui:Button Content="Open Stats Window" Click="OnOpenStats" Margin="16,0,0,0" FontSize="11"/>
+            </StackPanel>
+            <TextBlock Text="Match chat lines and count locally. Counters never post to Discord."
+                       Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,0,0,8"/>
+
+            <DockPanel Margin="0,0,0,4">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ui:Button Content="+" Click="OnAddCounter" Width="32" Margin="4,0,0,0" ToolTip="Add counter rule"/>
+                    <ui:Button x:Name="EditCounterButton" Content="✎" Click="OnEditCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Edit selected counter"/>
+                    <ui:Button x:Name="RemoveCounterButton" Content="—" Click="OnRemoveCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Remove selected counter"/>
+                </StackPanel>
+                <TextBlock Text="Counter rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </DockPanel>
+            <ListBox x:Name="CountersList" Height="100" Margin="0,4,0,12"
+                     SelectionChanged="OnCountersListSelectionChanged"
+                     MouseDoubleClick="OnCountersListDoubleClick"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
