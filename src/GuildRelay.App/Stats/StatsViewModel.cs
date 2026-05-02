@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using GuildRelay.Core.Config;
 using GuildRelay.Core.Stats;
@@ -32,6 +33,7 @@ public sealed class StatsViewModel
     public IReadOnlyList<CounterRowVm> Rows { get; private set; }
     public string BadgeState { get; private set; }
     public bool HasNoRules { get; private set; }
+    public string SessionElapsedText { get; private set; } = "0:00";
 
     public void Refresh()
     {
@@ -64,6 +66,12 @@ public sealed class StatsViewModel
 
         Rows = rows;
         HasNoRules = rules.Count == 0 && rows.Count == 0;
+
+        var elapsed = _clock() - _aggregator.SessionStart;
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        SessionElapsedText = elapsed >= TimeSpan.FromHours(1)
+            ? elapsed.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : elapsed.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
     public void ResetCounter(string label) => _aggregator.Reset(label);

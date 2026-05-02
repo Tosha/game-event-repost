@@ -114,4 +114,79 @@ public class StatsViewModelTests
             .Which.Should().BeEquivalentTo(new CounterRowVm("Glory", 80, 80));
         vm.HasNoRules.Should().BeFalse();
     }
+
+    [Fact]
+    public void SessionElapsedTextIsZeroAtConstruction()
+    {
+        var clockValue = T0;
+        var agg = new StatsAggregator(() => clockValue);
+        var vm = new StatsViewModel(agg, () => clockValue, () => System.Array.Empty<CounterRule>(), () => true);
+
+        vm.Refresh();
+
+        vm.SessionElapsedText.Should().Be("0:00");
+    }
+
+    [Fact]
+    public void SessionElapsedTextFormatsSubHourAsMinutesSeconds()
+    {
+        var clockValue = T0;
+        var agg = new StatsAggregator(() => clockValue);
+        clockValue = T0.AddMinutes(5).AddSeconds(23);
+        var vm = new StatsViewModel(agg, () => clockValue, () => System.Array.Empty<CounterRule>(), () => true);
+
+        vm.Refresh();
+
+        vm.SessionElapsedText.Should().Be("5:23");
+    }
+
+    [Fact]
+    public void SessionElapsedTextFormatsOverHourAsHoursMinutesSeconds()
+    {
+        var clockValue = T0;
+        var agg = new StatsAggregator(() => clockValue);
+        clockValue = T0.AddHours(1).AddMinutes(5).AddSeconds(23);
+        var vm = new StatsViewModel(agg, () => clockValue, () => System.Array.Empty<CounterRule>(), () => true);
+
+        vm.Refresh();
+
+        vm.SessionElapsedText.Should().Be("1:05:23");
+    }
+
+    [Fact]
+    public void SessionElapsedTextClampsToZeroWhenNegative()
+    {
+        // Pathological: the VM clock is somehow earlier than the aggregator's
+        // SessionStart (e.g., NTP jump backward). Should not display a negative
+        // duration; clamp to 0:00 for sanity.
+        var clockValue = T0;
+        var agg = new StatsAggregator(() => clockValue);
+        clockValue = T0.AddSeconds(-5);
+        var vm = new StatsViewModel(agg, () => clockValue, () => System.Array.Empty<CounterRule>(), () => true);
+
+        vm.Refresh();
+
+        vm.SessionElapsedText.Should().Be("0:00");
+    }
+
+    [Fact]
+    public void SessionElapsedTextResetsAfterResetAll()
+    {
+        DateTimeOffset clockValue = T0;
+        var agg = new StatsAggregator(() => clockValue);
+
+        // Five minutes of session.
+        clockValue = T0.AddMinutes(5);
+        var vm = new StatsViewModel(agg, () => clockValue, () => System.Array.Empty<CounterRule>(), () => true);
+        vm.Refresh();
+        vm.SessionElapsedText.Should().Be("5:00");
+
+        // ResetAll under a clock that's now 10 minutes after T0. SessionStart
+        // jumps to 10:00. Refresh under same clock → elapsed = 0.
+        clockValue = T0.AddMinutes(10);
+        vm.ResetAll();
+        vm.Refresh();
+
+        vm.SessionElapsedText.Should().Be("0:00");
+    }
 }
