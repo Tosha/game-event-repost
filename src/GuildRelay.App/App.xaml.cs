@@ -37,8 +37,8 @@ public partial class App : Application
         catch (Exception ex)
         {
             MessageBox.Show(
-                $"GuildRelay failed to start:\n\n{ex.Message}\n\n{ex.GetType().Name}",
-                "GuildRelay — Startup Error",
+                $"Game Herald failed to start:\n\n{ex.Message}\n\n{ex.GetType().Name}",
+                "Game Herald — Startup Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);

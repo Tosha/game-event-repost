@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:GuildRelay.App.Config"
-        Title="GuildRelay — Config" Width="600" Height="620"
+        Title="Game Herald — Config" Width="600" Height="620"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
         Closing="OnClosing"
@@ -15,7 +15,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="GuildRelay — Config"/>
+        <ui:TitleBar Grid.Row="0" Title="Game Herald — Config"/>
 
         <TabControl Grid.Row="1" Margin="12,4,12,0" x:Name="MainTabs">
             <TabItem x:Name="ChatTabItem">

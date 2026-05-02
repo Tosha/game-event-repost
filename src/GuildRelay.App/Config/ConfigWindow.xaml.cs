@@ -189,7 +189,7 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
             await vm.Host.Publisher.PublishAsync(new DetectionEvent(
                 FeatureId: "test",
                 RuleLabel: "Connection test",
-                MatchedContent: $"GuildRelay connected - hello from {PlayerBox.Text}",
+                MatchedContent: $"Game Herald connected - hello from {PlayerBox.Text}",
                 TimestampUtc: DateTimeOffset.UtcNow,
                 PlayerName: PlayerBox.Text,
                 Extras: new System.Collections.Generic.Dictionary<string, string>(),
