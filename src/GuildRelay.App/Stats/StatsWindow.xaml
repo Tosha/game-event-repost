@@ -23,7 +23,7 @@
                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
-            <DataGrid x:Name="Grid" AutoGenerateColumns="False" CanUserAddRows="False"
+            <DataGrid x:Name="CounterGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                       CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column"
                       GridLinesVisibility="None" RowHeight="28">
                 <DataGrid.Columns>

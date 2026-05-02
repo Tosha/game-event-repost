@@ -18,7 +18,7 @@ public partial class StatsWindow : Wpf.Ui.Controls.FluentWindow
         {
             Interval = TimeSpan.FromSeconds(1)
         };
-        _timer.Tick += (_, _) => Refresh();
+        _timer.Tick += (_, _) => { if (IsVisible) Refresh(); };
         Loaded += (_, _) => { Refresh(); _timer.Start(); };
         Closed += (_, _) => _timer.Stop();
     }
@@ -26,10 +26,10 @@ public partial class StatsWindow : Wpf.Ui.Controls.FluentWindow
     private void Refresh()
     {
         _vm.Refresh();
-        Grid.ItemsSource = _vm.Rows;
+        CounterGrid.ItemsSource = _vm.Rows;
         BadgeText.Text = _vm.BadgeState;
         EmptyHint.Visibility = _vm.HasNoRules ? Visibility.Visible : Visibility.Collapsed;
-        Grid.Visibility       = _vm.HasNoRules ? Visibility.Collapsed : Visibility.Visible;
+        CounterGrid.Visibility       = _vm.HasNoRules ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnRowResetClick(object sender, RoutedEventArgs e)
