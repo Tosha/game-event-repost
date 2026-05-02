@@ -33,13 +33,38 @@ public class ChatWatcherStatsTests
             => Task.FromResult(new OcrResult(NextLines));
     }
 
+    /// <summary>
+    /// OCR fake that returns one set of lines on the first capture and a different
+    /// set on every subsequent capture. Used to simulate body-text OCR drift
+    /// across ticks for the same chat content.
+    /// </summary>
+    private sealed class VaryingOcr : IOcrEngine
+    {
+        private readonly List<OcrLine> _firstTick;
+        private readonly List<OcrLine> _laterTicks;
+        public int Calls;
+
+        public VaryingOcr(List<OcrLine> firstTick, List<OcrLine> laterTicks)
+        {
+            _firstTick = firstTick;
+            _laterTicks = laterTicks;
+        }
+
+        public Task<OcrResult> RecognizeAsync(ReadOnlyMemory<byte> bgraPixels,
+            int width, int height, int stride, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new OcrResult(Calls == 1 ? _firstTick : _laterTicks));
+        }
+    }
+
     private static readonly CounterRule GloryCounter = new(
         Id: "g", Label: "Glory",
         Channels: new List<string> { "Game" },
         Pattern: "You gained {value} Glory.",
         MatchMode: CounterMatchMode.Template);
 
-    private static ChatWatcher Build(FakeOcr ocr, EventBus bus, IStatsAggregator stats,
+    private static ChatWatcher Build(IOcrEngine ocr, EventBus bus, IStatsAggregator stats,
         bool statsEnabled, bool eventRepostEnabled,
         List<StructuredChatRule>? rules = null,
         List<CounterRule>? counters = null)
@@ -155,5 +180,114 @@ public class ChatWatcherStatsTests
 
         stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
             .Which.Total.Should().Be(80);
+    }
+
+    [Fact]
+    public async Task DoesNotDoubleCountWhenBodyOcrVariesButRegexStillMatches()
+    {
+        var stats = new StatsAggregator();
+        var bus = new EventBus(capacity: 16);
+
+        // Lenient regex rule (no anchors, no required trailing period) so OCR
+        // variation in the body — like a dropped trailing period — does not
+        // defeat the rule's match. This isolates the dedup behaviour from the
+        // regex strictness.
+        var lenientGlory = new CounterRule(
+            Id: "g", Label: "Glory",
+            Channels: new List<string> { "Game" },
+            Pattern: @"you gained (?<value>\d+) glory",
+            MatchMode: CounterMatchMode.Regex);
+
+        // Same chat line, different OCR output across ticks: the trailing period
+        // disappears on the second pass. Body-based chat dedup MISSES because
+        // bodies differ. Counter dedup must catch this via structured fields
+        // (channel, timestamp, label, value).
+        var ocr = new VaryingOcr(
+            firstTick: new()
+            {
+                new("[16:01:04][Game] You gained 80 Glory.", 0.9f, RectangleF.Empty),
+                new("[16:01:05][Game] terminator line.",     0.9f, RectangleF.Empty),
+            },
+            laterTicks: new()
+            {
+                new("[16:01:04][Game] You gained 80 Glory",  0.9f, RectangleF.Empty),  // no period
+                new("[16:01:05][Game] terminator line.",     0.9f, RectangleF.Empty),
+            });
+
+        var watcher = Build(ocr, bus, stats,
+            statsEnabled: true, eventRepostEnabled: false,
+            counters: new List<CounterRule> { lenientGlory });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        await watcher.StartAsync(cts.Token);
+        await Task.Delay(2500);
+        await watcher.StopAsync();
+        bus.Complete();
+
+        ocr.Calls.Should().BeGreaterThanOrEqualTo(2,
+            "the body-OCR-variation scenario only manifests when >=2 ticks fire");
+
+        stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
+            .Which.Total.Should().Be(80);
+    }
+
+    [Fact]
+    public async Task RecordsTwoDistinctValuesAtSameInGameSecond()
+    {
+        var stats = new StatsAggregator();
+        var bus = new EventBus(capacity: 16);
+
+        // Two genuinely distinct events at the same chat-timestamp second (e.g.,
+        // killed two enemies of different worth in the same second). The counter
+        // dedup includes the value in its key, so 80 and 50 are distinguished.
+        var ocr = new FakeOcr
+        {
+            NextLines = new()
+            {
+                new("[16:01:04][Game] You gained 80 Glory.", 0.9f, RectangleF.Empty),
+                new("[16:01:04][Game] You gained 50 Glory.", 0.9f, RectangleF.Empty),
+                new("[16:01:05][Game] terminator line.",     0.9f, RectangleF.Empty),
+            }
+        };
+
+        var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await watcher.StartAsync(cts.Token);
+        await Task.Delay(1500);
+        await watcher.StopAsync();
+        bus.Complete();
+
+        stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
+            .Which.Total.Should().Be(130);
+    }
+
+    [Fact]
+    public async Task RecordsSameValueAtDifferentInGameSeconds()
+    {
+        var stats = new StatsAggregator();
+        var bus = new EventBus(capacity: 16);
+
+        // Same value, different timestamps — both must record. Confirms the
+        // counter dedup includes the timestamp and doesn't suppress legitimate
+        // repeats across distinct in-game seconds.
+        var ocr = new FakeOcr
+        {
+            NextLines = new()
+            {
+                new("[16:01:04][Game] You gained 80 Glory.", 0.9f, RectangleF.Empty),
+                new("[16:01:05][Game] You gained 80 Glory.", 0.9f, RectangleF.Empty),
+                new("[16:01:06][Game] terminator line.",     0.9f, RectangleF.Empty),
+            }
+        };
+
+        var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await watcher.StartAsync(cts.Token);
+        await Task.Delay(1500);
+        await watcher.StopAsync();
+        bus.Complete();
+
+        stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
+            .Which.Total.Should().Be(160);
     }
 }
