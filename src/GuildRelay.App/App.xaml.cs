@@ -12,6 +12,7 @@ public partial class App : Application
     private TrayView? _trayView;
     private StatsWindowController? _statsController;
     private Config.ConfigViewModel? _configVm;
+    private Config.ConfigWindow? _configWindow;
 
     private async void OnStartup(object sender, StartupEventArgs e)
     {
@@ -53,12 +54,21 @@ public partial class App : Application
 
     private void OpenConfig()
     {
+        if (_configWindow is { IsLoaded: true })
+        {
+            _configWindow.Activate();
+            return;
+        }
         _configVm = new Config.ConfigViewModel(_host!);
-        var window = new Config.ConfigWindow();
-        window.DataContext = _configVm;
-        window.Closed += (_, _) => _configVm = null;
-        window.Show();
-        window.Activate();
+        _configWindow = new Config.ConfigWindow();
+        _configWindow.DataContext = _configVm;
+        _configWindow.Closed += (_, _) =>
+        {
+            _configVm = null;
+            _configWindow = null;
+        };
+        _configWindow.Show();
+        _configWindow.Activate();
     }
 
     private void OpenStats() => _statsController?.OpenOrFocus();
