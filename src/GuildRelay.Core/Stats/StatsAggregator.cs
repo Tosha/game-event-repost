@@ -53,6 +53,9 @@ public sealed class StatsAggregator : IStatsAggregator
                 state.Total = 0;
                 state.Events.Clear();
             }
+            // Always update SessionStart, even if the label has no recorded
+            // events. Per spec: any reset drops the timer.
+            _sessionStart = _clock();
         }
     }
 
@@ -65,6 +68,7 @@ public sealed class StatsAggregator : IStatsAggregator
                 state.Total = 0;
                 state.Events.Clear();
             }
+            _sessionStart = _clock();
         }
     }
 
