@@ -30,8 +30,9 @@ public partial class App : Application
             _trayView.DataContext = new TrayViewModel(_host, OpenConfig, OpenStats, Quit);
             _trayView.Show();
 
-            if (!_host.Secrets.HasWebhookUrl)
-                OpenConfig();
+            // Always open the config window on startup. Users hide it via minimize
+            // (handled by the StateChanged hook in OpenConfig) — the tray icon stays.
+            OpenConfig();
         }
         catch (Exception ex)
         {
@@ -56,12 +57,23 @@ public partial class App : Application
     {
         if (_configWindow is { IsLoaded: true })
         {
+            // Restore from hidden (minimize-to-tray) or minimized state.
+            if (!_configWindow.IsVisible) _configWindow.Show();
+            if (_configWindow.WindowState == WindowState.Minimized)
+                _configWindow.WindowState = WindowState.Normal;
             _configWindow.Activate();
             return;
         }
         _configVm = new Config.ConfigViewModel(_host!);
         _configWindow = new Config.ConfigWindow();
         _configWindow.DataContext = _configVm;
+        // Minimize button hides the window so it disappears from the taskbar
+        // and lives only in the tray. To restore: tray menu → Open Config.
+        _configWindow.StateChanged += (_, _) =>
+        {
+            if (_configWindow is not null && _configWindow.WindowState == WindowState.Minimized)
+                _configWindow.Hide();
+        };
         _configWindow.Closed += (_, _) =>
         {
             _configVm = null;

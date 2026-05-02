@@ -27,31 +27,34 @@
                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,0,0,8"/>
 
-            <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
-                <ComboBox x:Name="TemplateCombo" Width="220" Margin="0,0,8,0"/>
-                <ui:Button Content="Load Template" Click="OnLoadTemplate"/>
-            </StackPanel>
-
-            <DockPanel Margin="0,0,0,4">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <ui:Button Content="+" Click="OnAddRule" Width="32" Margin="4,0,0,0" ToolTip="Add rule"/>
-                    <ui:Button x:Name="EditRuleButton" Content="✎" Click="OnEditRule" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Edit selected rule"/>
-                    <ui:Button x:Name="RemoveRuleButton" Content="—" Click="OnRemoveRule" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Remove selected rule"/>
+            <!-- Body collapses when Event Repost is OFF; toggled by code-behind. -->
+            <StackPanel x:Name="EventRepostBody" Visibility="Collapsed">
+                <TextBlock Text="Rule templates" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                    <ComboBox x:Name="TemplateCombo" Width="220" Margin="0,0,8,0"/>
+                    <ui:Button Content="Load Template" Click="OnLoadTemplate"/>
                 </StackPanel>
-                <TextBlock Text="Active rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            </DockPanel>
-            <ListBox x:Name="RulesList" Height="120" Margin="0,4,0,12"
-                     SelectionChanged="OnRulesListSelectionChanged"
-                     MouseDoubleClick="OnRulesListDoubleClick"/>
 
-            <TextBlock Text="Test a message against your rules" FontWeight="SemiBold" Margin="0,8,0,0"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-                <TextBox x:Name="TestMessageBox" Width="350" Margin="0,0,8,0" FontFamily="Consolas"/>
-                <ui:Button Content="Test" Click="OnTestMessage"/>
+                <DockPanel Margin="0,0,0,4">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ui:Button Content="+" Click="OnAddRule" Width="32" Margin="4,0,0,0" ToolTip="Add rule"/>
+                        <ui:Button x:Name="EditRuleButton" Content="✎" Click="OnEditRule" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Edit selected rule"/>
+                        <ui:Button x:Name="RemoveRuleButton" Content="—" Click="OnRemoveRule" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Remove selected rule"/>
+                    </StackPanel>
+                    <TextBlock Text="Active rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
+                <ListBox x:Name="RulesList" Height="120" Margin="0,4,0,12"
+                         SelectionChanged="OnRulesListSelectionChanged"
+                         MouseDoubleClick="OnRulesListDoubleClick"/>
+
+                <TextBlock Text="Test a message against your rules" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                    <TextBox x:Name="TestMessageBox" Width="350" Margin="0,0,8,0" FontFamily="Consolas"/>
+                    <ui:Button Content="Test" Click="OnTestMessage"/>
+                </StackPanel>
+                <TextBlock x:Name="TestResultText" Margin="0,4,0,0"
+                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
             </StackPanel>
-            <TextBlock x:Name="TestResultText" Margin="0,4,0,0"
-                       Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
             <Separator Margin="0,16,0,12"/>
 
@@ -66,17 +69,20 @@
                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,0,0,8"/>
 
-            <DockPanel Margin="0,0,0,4">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <ui:Button Content="+" Click="OnAddCounter" Width="32" Margin="4,0,0,0" ToolTip="Add counter rule"/>
-                    <ui:Button x:Name="EditCounterButton" Content="✎" Click="OnEditCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Edit selected counter"/>
-                    <ui:Button x:Name="RemoveCounterButton" Content="—" Click="OnRemoveCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Remove selected counter"/>
-                </StackPanel>
-                <TextBlock Text="Counter rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            </DockPanel>
-            <ListBox x:Name="CountersList" Height="100" Margin="0,4,0,12"
-                     SelectionChanged="OnCountersListSelectionChanged"
-                     MouseDoubleClick="OnCountersListDoubleClick"/>
+            <!-- Body collapses when Stats is OFF; toggled by code-behind. -->
+            <StackPanel x:Name="StatsBody" Visibility="Collapsed">
+                <DockPanel Margin="0,0,0,4">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <ui:Button Content="+" Click="OnAddCounter" Width="32" Margin="4,0,0,0" ToolTip="Add counter rule"/>
+                        <ui:Button x:Name="EditCounterButton" Content="✎" Click="OnEditCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Edit selected counter"/>
+                        <ui:Button x:Name="RemoveCounterButton" Content="—" Click="OnRemoveCounter" Width="32" Margin="4,0,0,0" IsEnabled="False" ToolTip="Remove selected counter"/>
+                    </StackPanel>
+                    <TextBlock Text="Counter rules" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
+                <ListBox x:Name="CountersList" Height="100" Margin="0,4,0,12"
+                         SelectionChanged="OnCountersListSelectionChanged"
+                         MouseDoubleClick="OnCountersListDoubleClick"/>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
