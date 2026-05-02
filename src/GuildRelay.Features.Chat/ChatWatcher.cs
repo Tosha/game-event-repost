@@ -9,6 +9,7 @@ using GuildRelay.Core.Config;
 using GuildRelay.Core.Events;
 using GuildRelay.Core.Features;
 using GuildRelay.Core.Ocr;
+using GuildRelay.Core.Stats;
 using GuildRelay.Features.Chat.Preprocessing;
 
 namespace GuildRelay.Features.Chat;
@@ -36,12 +37,14 @@ public sealed class ChatWatcher : IFeature
     private readonly IOcrEngine _ocr;
     private readonly PreprocessPipeline _pipeline;
     private readonly EventBus _bus;
+    private readonly IStatsAggregator _stats;
     private readonly string _playerName;
     private readonly ChatDedup _dedup = new(capacity: 256);
     private readonly CooldownTracker _cooldown = new();
     private AssembledMessage? _deferredTrailing;
     private ChatConfig _config;
     private ChannelMatcher _matcher;
+    private CounterMatcher _counterMatcher;
     private CancellationTokenSource? _cts;
 
     public ChatWatcher(
@@ -49,6 +52,7 @@ public sealed class ChatWatcher : IFeature
         IOcrEngine ocr,
         PreprocessPipeline pipeline,
         EventBus bus,
+        IStatsAggregator stats,
         ChatConfig config,
         string playerName)
     {
@@ -56,9 +60,11 @@ public sealed class ChatWatcher : IFeature
         _ocr = ocr;
         _pipeline = pipeline;
         _bus = bus;
+        _stats = stats;
         _config = config;
         _playerName = playerName;
         _matcher = new ChannelMatcher(config.Rules);
+        _counterMatcher = new CounterMatcher(config.CounterRules);
     }
 
     public string Id => "chat";
@@ -97,6 +103,7 @@ public sealed class ChatWatcher : IFeature
         if (newConfig is null) return;
         _config = newConfig;
         _matcher = new ChannelMatcher(newConfig.Rules);
+        _counterMatcher = new CounterMatcher(newConfig.CounterRules);
     }
 
     private async Task CaptureLoopAsync(CancellationToken ct)
@@ -137,6 +144,7 @@ public sealed class ChatWatcher : IFeature
             ct).ConfigureAwait(false);
 
         var matcher = _matcher;
+        var counterMatcher = _counterMatcher;
 
         var debug = DebugTick is not null ? new ChatTickDebugInfo
         {
@@ -209,6 +217,23 @@ public sealed class ChatWatcher : IFeature
             }
 
             var parsed = msg.ToParsedChatLine();
+
+            // Stats pipeline (independent of Event Repost).
+            if (_config.StatsEnabled)
+            {
+                var counter = counterMatcher.Match(parsed);
+                if (counter is not null)
+                {
+                    _stats.Record(counter.Label, counter.Value, DateTimeOffset.UtcNow);
+                    debug?.MatchResults.Add(
+                        $"COUNTED [{counter.Label}: {counter.Value}] rows {msg.StartRow}-{msg.EndRow}: " +
+                        $"{msg.OriginalText}");
+                }
+            }
+
+            // Event Repost pipeline — only runs when enabled.
+            if (!_config.EventRepostEnabled) continue;
+
             var match = matcher.FindMatch(parsed);
             if (match is null) continue;
 

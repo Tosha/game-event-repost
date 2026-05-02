@@ -9,6 +9,7 @@ using GuildRelay.Core.Config;
 using GuildRelay.Core.Events;
 using GuildRelay.Core.Ocr;
 using GuildRelay.Core.Preprocessing;
+using GuildRelay.Core.Stats;
 using GuildRelay.Features.Chat;
 using GuildRelay.Features.Chat.Preprocessing;
 using Xunit;
@@ -35,11 +36,13 @@ public class ChatWatcherTests
     private static ChatWatcher CreateWatcher(
         FakeOcr ocr,
         EventBus bus,
-        List<StructuredChatRule> rules)
+        List<StructuredChatRule> rules,
+        IStatsAggregator? stats = null)
     {
         var config = ChatConfig.Default with
         {
-            Enabled = true,
+            EventRepostEnabled = true,
+            StatsEnabled = false,
             CaptureIntervalSec = 1,
             OcrConfidenceThreshold = 0.5,
             Region = new RegionConfig(0, 0, 100, 100, 96,
@@ -51,6 +54,7 @@ public class ChatWatcherTests
             ocr,
             new PreprocessPipeline(Array.Empty<IPreprocessStage>()),
             bus,
+            stats ?? new StatsAggregator(),
             config,
             playerName: "Tosh");
     }

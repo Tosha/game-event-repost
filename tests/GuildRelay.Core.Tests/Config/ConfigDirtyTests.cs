@@ -16,10 +16,36 @@ public class ConfigDirtyTests
     }
 
     [Fact]
-    public void ChatTabDirtyWhenEnabledFlips()
+    public void ChatTabDirtyWhenEventRepostFlips()
     {
         var saved = AppConfig.Default;
-        var pending = saved with { Chat = saved.Chat with { Enabled = !saved.Chat.Enabled } };
+        var pending = saved with { Chat = saved.Chat with { EventRepostEnabled = !saved.Chat.EventRepostEnabled } };
+        ConfigDirty.IsDirtyChatTab(pending, saved).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ChatTabDirtyWhenStatsToggleFlips()
+    {
+        var saved = AppConfig.Default;
+        var pending = saved with { Chat = saved.Chat with { StatsEnabled = !saved.Chat.StatsEnabled } };
+        ConfigDirty.IsDirtyChatTab(pending, saved).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ChatTabDirtyWhenCounterRulesChangeAcrossClone()
+    {
+        var saved = AppConfig.Default;
+        var pending = JsonRoundTrip(saved);
+        pending = pending with
+        {
+            Chat = pending.Chat with
+            {
+                CounterRules = new System.Collections.Generic.List<CounterRule>
+                {
+                    pending.Chat.CounterRules[0] with { Label = "CHANGED" }
+                }
+            }
+        };
         ConfigDirty.IsDirtyChatTab(pending, saved).Should().BeTrue();
     }
 

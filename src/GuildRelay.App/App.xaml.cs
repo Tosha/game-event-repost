@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using GuildRelay.App.Exceptions;
+using GuildRelay.App.Stats;
 using GuildRelay.App.Tray;
 
 namespace GuildRelay.App;
@@ -9,6 +10,9 @@ public partial class App : Application
 {
     private CoreHost? _host;
     private TrayView? _trayView;
+    private StatsWindowController? _statsController;
+    private Config.ConfigViewModel? _configVm;
+    private Config.ConfigWindow? _configWindow;
 
     private async void OnStartup(object sender, StartupEventArgs e)
     {
@@ -17,8 +21,13 @@ public partial class App : Application
             _host = await CoreHost.CreateAsync().ConfigureAwait(true);
             GlobalExceptionHandler.Hook(_host.Logger);
 
+            _statsController = new StatsWindowController(
+                _host,
+                rulesProvider: () => CurrentChat().CounterRules,
+                statsEnabledProvider: () => CurrentChat().StatsEnabled);
+
             _trayView = new TrayView();
-            _trayView.DataContext = new TrayViewModel(_host, OpenConfig, Quit);
+            _trayView.DataContext = new TrayViewModel(_host, OpenConfig, OpenStats, Quit);
             _trayView.Show();
 
             if (!_host.Secrets.HasWebhookUrl)
@@ -35,13 +44,36 @@ public partial class App : Application
         }
     }
 
+    private Core.Config.ChatConfig CurrentChat()
+    {
+        // The pending VM (if open) reflects unsaved edits; otherwise fall back
+        // to the saved host config. The stats window should reflect the user's
+        // current view of which rules are configured.
+        return _configVm?.PendingConfig.Chat ?? _host!.Config.Chat;
+    }
+
     private void OpenConfig()
     {
-        var window = new Config.ConfigWindow();
-        window.DataContext = new Config.ConfigViewModel(_host!);
-        window.Show();
-        window.Activate();
+        if (_configWindow is { IsLoaded: true })
+        {
+            _configWindow.Activate();
+            return;
+        }
+        _configVm = new Config.ConfigViewModel(_host!);
+        _configWindow = new Config.ConfigWindow();
+        _configWindow.DataContext = _configVm;
+        _configWindow.Closed += (_, _) =>
+        {
+            _configVm = null;
+            _configWindow = null;
+        };
+        _configWindow.Show();
+        _configWindow.Activate();
     }
+
+    private void OpenStats() => _statsController?.OpenOrFocus();
+
+    internal void OpenStatsFromConfig() => OpenStats();
 
     private async void Quit()
     {

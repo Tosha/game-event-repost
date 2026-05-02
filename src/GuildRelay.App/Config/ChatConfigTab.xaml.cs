@@ -26,21 +26,38 @@ public partial class ChatConfigTab : UserControl
 
         _loading = true;
         var chat = _vm.PendingConfig.Chat;
-        EnabledToggle.IsChecked = chat.Enabled;
+        EventRepostToggle.IsChecked = chat.EventRepostEnabled;
+        StatsToggle.IsChecked       = chat.StatsEnabled;
         UpdateRegionLabel(chat.Region);
         RefreshRulesList();
+        RefreshCountersList();
 
         TemplateCombo.ItemsSource = RuleTemplates.BuiltInNames;
-        if (RuleTemplates.BuiltInNames.Count > 0)
-            TemplateCombo.SelectedIndex = 0;
+        if (RuleTemplates.BuiltInNames.Count > 0) TemplateCombo.SelectedIndex = 0;
         _loading = false;
     }
 
-    private void OnEnabledChanged(object sender, RoutedEventArgs e)
+    // --- Toggles ---
+
+    private void OnEventRepostChanged(object sender, RoutedEventArgs e)
     {
         if (_loading || _vm is null) return;
-        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Enabled = EnabledToggle.IsChecked ?? false });
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with
+        {
+            EventRepostEnabled = EventRepostToggle.IsChecked ?? false
+        });
     }
+
+    private void OnStatsChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _vm is null) return;
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with
+        {
+            StatsEnabled = StatsToggle.IsChecked ?? false
+        });
+    }
+
+    // --- Region picker ---
 
     private void OnPickRegion(object sender, RoutedEventArgs e)
     {
@@ -60,12 +77,11 @@ public partial class ChatConfigTab : UserControl
 
     private void UpdateRegionLabel(RegionConfig region)
     {
-        RegionLabel.Text = region.IsEmpty
-            ? "No region selected"
-            : $"{region.X},{region.Y} {region.Width}x{region.Height}";
+        RegionLabel.Text = region.IsEmpty ? "No region selected"
+                                          : $"{region.X},{region.Y} {region.Width}x{region.Height}";
     }
 
-    // --- Rules list ---
+    // --- Event-repost rules list ---
 
     private void RefreshRulesList()
     {
@@ -76,28 +92,25 @@ public partial class ChatConfigTab : UserControl
             RulesList.Items.Add(FormatRuleSummary(r));
         if (selected >= 0 && selected < RulesList.Items.Count)
             RulesList.SelectedIndex = selected;
-        UpdateActionButtons();
+        UpdateRuleButtons();
     }
 
     private static string FormatRuleSummary(StructuredChatRule r)
     {
-        var channels = r.Channels.Count == 0
-            ? "all channels"
-            : string.Join(", ", r.Channels);
+        var channels = r.Channels.Count == 0 ? "all channels" : string.Join(", ", r.Channels);
         var keywords = r.Keywords.Count == 0 ? "all messages" : $"{r.Keywords.Count} keywords";
         var mode = r.MatchMode == MatchMode.Regex ? " (regex)" : "";
         return $"{r.Label}  —  {channels}  —  {keywords}{mode}  —  {r.CooldownSec}s";
     }
 
-    private void UpdateActionButtons()
+    private void UpdateRuleButtons()
     {
         bool hasSelection = RulesList.SelectedIndex >= 0;
         EditRuleButton.IsEnabled   = hasSelection;
         RemoveRuleButton.IsEnabled = hasSelection;
     }
 
-    private void OnRulesListSelectionChanged(object sender, SelectionChangedEventArgs e)
-        => UpdateActionButtons();
+    private void OnRulesListSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateRuleButtons();
 
     private void OnRulesListDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -121,11 +134,9 @@ public partial class ChatConfigTab : UserControl
         var idx = RulesList.SelectedIndex;
         var rules = _vm.PendingConfig.Chat.Rules;
         if (idx < 0 || idx >= rules.Count) return;
-
         var window = Window.GetWindow(this)!;
         var rule = RuleEditorWindow.Show(window, existing: rules[idx], _vm.PendingConfig.Chat.DefaultCooldownSec);
         if (rule is null) return;
-
         var newRules = new List<StructuredChatRule>(rules);
         newRules[idx] = rule;
         _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
@@ -139,7 +150,6 @@ public partial class ChatConfigTab : UserControl
         var idx = RulesList.SelectedIndex;
         var rules = _vm.PendingConfig.Chat.Rules;
         if (idx < 0 || idx >= rules.Count) return;
-
         var newRules = new List<StructuredChatRule>(rules);
         newRules.RemoveAt(idx);
         _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
@@ -150,16 +160,91 @@ public partial class ChatConfigTab : UserControl
     {
         if (_vm is null || TemplateCombo.SelectedItem is not string name) return;
         if (!RuleTemplates.BuiltIn.TryGetValue(name, out var templateRules)) return;
-
         var current = _vm.PendingConfig.Chat.Rules;
         var newOnes = templateRules.Where(r => !current.Any(er => er.Id == r.Id)).ToList();
         if (newOnes.Count == 0) return;
-
         var newRules = new List<StructuredChatRule>(current);
         newRules.AddRange(newOnes);
         _vm.SetPendingChat(_vm.PendingConfig.Chat with { Rules = newRules });
         RefreshRulesList();
     }
+
+    // --- Counter rules list ---
+
+    private void RefreshCountersList()
+    {
+        if (_vm is null) return;
+        var selected = CountersList.SelectedIndex;
+        CountersList.Items.Clear();
+        foreach (var c in _vm.PendingConfig.Chat.CounterRules)
+            CountersList.Items.Add(FormatCounterSummary(c));
+        if (selected >= 0 && selected < CountersList.Items.Count)
+            CountersList.SelectedIndex = selected;
+        UpdateCounterButtons();
+    }
+
+    private static string FormatCounterSummary(CounterRule c)
+    {
+        var channels = c.Channels.Count == 0 ? "all channels" : string.Join(", ", c.Channels);
+        var mode = c.MatchMode == CounterMatchMode.Regex ? "regex" : "template";
+        return $"{c.Label}  —  {channels}  —  {mode}  —  \"{c.Pattern}\"";
+    }
+
+    private void UpdateCounterButtons()
+    {
+        bool hasSelection = CountersList.SelectedIndex >= 0;
+        EditCounterButton.IsEnabled   = hasSelection;
+        RemoveCounterButton.IsEnabled = hasSelection;
+    }
+
+    private void OnCountersListSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateCounterButtons();
+
+    private void OnCountersListDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (CountersList.SelectedIndex >= 0) OnEditCounter(sender, e);
+    }
+
+    private void OnAddCounter(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var window = Window.GetWindow(this)!;
+        var rule = CounterRuleEditorWindow.Show(window, existing: null);
+        if (rule is null) return;
+        var newCounters = new List<CounterRule>(_vm.PendingConfig.Chat.CounterRules) { rule };
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { CounterRules = newCounters });
+        RefreshCountersList();
+    }
+
+    private void OnEditCounter(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var idx = CountersList.SelectedIndex;
+        var counters = _vm.PendingConfig.Chat.CounterRules;
+        if (idx < 0 || idx >= counters.Count) return;
+        var window = Window.GetWindow(this)!;
+        var rule = CounterRuleEditorWindow.Show(window, existing: counters[idx]);
+        if (rule is null) return;
+        var newCounters = new List<CounterRule>(counters);
+        newCounters[idx] = rule;
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { CounterRules = newCounters });
+        RefreshCountersList();
+        CountersList.SelectedIndex = idx;
+    }
+
+    private void OnRemoveCounter(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var idx = CountersList.SelectedIndex;
+        var counters = _vm.PendingConfig.Chat.CounterRules;
+        if (idx < 0 || idx >= counters.Count) return;
+        var newCounters = new List<CounterRule>(counters);
+        newCounters.RemoveAt(idx);
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { CounterRules = newCounters });
+        RefreshCountersList();
+    }
+
+    private void OnOpenStats(object sender, RoutedEventArgs e)
+        => ((App)Application.Current).OpenStatsFromConfig();
 
     // --- Live view ---
 
@@ -175,13 +260,10 @@ public partial class ChatConfigTab : UserControl
             _debugWindow.Attach(chatFeature);
             _debugWindow.Show();
         }
-        else
-        {
-            _debugWindow.Activate();
-        }
+        else _debugWindow.Activate();
     }
 
-    // --- Test message (uses PendingConfig's rules only) ---
+    // --- Test message ---
 
     private void OnTestMessage(object sender, RoutedEventArgs e)
     {
@@ -193,7 +275,6 @@ public partial class ChatConfigTab : UserControl
             TestResultText.Foreground = Brushes.Gray;
             return;
         }
-
         var rules = _vm.PendingConfig.Chat.Rules;
         if (rules.Count == 0)
         {
@@ -201,12 +282,10 @@ public partial class ChatConfigTab : UserControl
             TestResultText.Foreground = Brushes.Gray;
             return;
         }
-
         var normalized = TextNormalizer.Normalize(message);
         var parsed = ChatLineParser.Parse(normalized);
         var matcher = new ChannelMatcher(rules);
         var match = matcher.FindMatch(parsed);
-
         if (match is not null)
         {
             TestResultText.Text = $"MATCH: rule \"{match.Rule.Label}\" on channel [{parsed.Channel}].  Body: \"{parsed.Body}\"";

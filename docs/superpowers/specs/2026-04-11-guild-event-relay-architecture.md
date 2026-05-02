@@ -175,6 +175,12 @@ public interface IDiscordPublisher {
 - **Rules are compiled once** on config load (`Regex.Compile` for regex rules, plain `IndexOf` for literal rules) and reused each tick. Config hot-reload swaps the rule list atomically — the capture loop only ever sees a coherent snapshot.
 - **Resolution/DPI drift detection:** on each capture, compare the current monitor's effective resolution and DPI to the values recorded when the region was picked. If they differ, the feature enters `Warning` status, logs a structured warning, and stops OCR (to avoid garbage matches) until the user re-picks the region. This is the recovery path for the §4.3 display-scaling risk.
 
+### 5.1 Dual pipeline (added 2026-05-01)
+
+Chat Watcher hosts two parallel post-dedup consumers of every parsed chat line: an **Event Repost** matcher (drives the Discord publisher) and a **Stats** matcher (drives an in-memory `IStatsAggregator`). Both share the same OCR work — region capture, preprocessing, OCR, normalization, message assembly, and dedup are performed once per tick. The two consumers are independent: a line that matches both rule lists fires both pipelines.
+
+The Chat Watcher feature is started whenever `EventRepostEnabled || StatsEnabled` is true (replacing the old single `Enabled` flag). See [`2026-05-01-chat-stats-counters-design.md`](./2026-05-01-chat-stats-counters-design.md) for full details.
+
 ## 6. Audio Watcher internals
 
 ```

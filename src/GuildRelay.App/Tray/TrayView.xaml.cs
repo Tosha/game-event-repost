@@ -11,6 +11,9 @@ public partial class TrayView : Window
     private void OnOpenConfig(object sender, RoutedEventArgs e)
         => (DataContext as TrayViewModel)?.OpenConfig();
 
+    private void OnOpenStats(object sender, RoutedEventArgs e)
+        => (DataContext as TrayViewModel)?.OpenStats();
+
     private void OnOpenLogs(object sender, RoutedEventArgs e)
     {
         var vm = DataContext as TrayViewModel;

@@ -17,16 +17,20 @@ public static class ConfigDirty
         || !ConfigEquality.Equal(pending.Status, saved.Status)
         || !Equals(pending.General, saved.General);
 
-    // Chat tab edits: Enabled, Region, Rules. (CaptureIntervalSec /
-    // OcrConfidenceThreshold / DefaultCooldownSec are edited on the Settings
-    // tab even though they live in ChatConfig.)
+    // Chat tab edits: EventRepostEnabled, StatsEnabled, Region, Rules, CounterRules.
+    // (CaptureIntervalSec / OcrConfidenceThreshold / DefaultCooldownSec are edited
+    // on the Settings tab even though they live in ChatConfig.)
     public static bool IsDirtyChatTab(AppConfig pending, AppConfig saved)
     {
-        if (pending.Chat.Enabled != saved.Chat.Enabled) return true;
+        if (pending.Chat.EventRepostEnabled != saved.Chat.EventRepostEnabled) return true;
+        if (pending.Chat.StatsEnabled != saved.Chat.StatsEnabled) return true;
         if (!Equals(pending.Chat.Region, saved.Chat.Region)) return true;
         if (pending.Chat.Rules.Count != saved.Chat.Rules.Count) return true;
         for (int i = 0; i < pending.Chat.Rules.Count; i++)
             if (!ConfigEquality.Equal(pending.Chat.Rules[i], saved.Chat.Rules[i])) return true;
+        if (pending.Chat.CounterRules.Count != saved.Chat.CounterRules.Count) return true;
+        for (int i = 0; i < pending.Chat.CounterRules.Count; i++)
+            if (!ConfigEquality.Equal(pending.Chat.CounterRules[i], saved.Chat.CounterRules[i])) return true;
         return false;
     }
 
