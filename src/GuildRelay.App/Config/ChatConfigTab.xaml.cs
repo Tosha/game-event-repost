@@ -26,7 +26,7 @@ public partial class ChatConfigTab : UserControl
 
         _loading = true;
         var chat = _vm.PendingConfig.Chat;
-        EnabledToggle.IsChecked = chat.Enabled;
+        EnabledToggle.IsChecked = chat.EventRepostEnabled;
         UpdateRegionLabel(chat.Region);
         RefreshRulesList();
 
@@ -39,7 +39,7 @@ public partial class ChatConfigTab : UserControl
     private void OnEnabledChanged(object sender, RoutedEventArgs e)
     {
         if (_loading || _vm is null) return;
-        _vm.SetPendingChat(_vm.PendingConfig.Chat with { Enabled = EnabledToggle.IsChecked ?? false });
+        _vm.SetPendingChat(_vm.PendingConfig.Chat with { EventRepostEnabled = EnabledToggle.IsChecked ?? false });
     }
 
     private void OnPickRegion(object sender, RoutedEventArgs e)

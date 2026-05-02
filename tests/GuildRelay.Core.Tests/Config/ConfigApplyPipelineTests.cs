@@ -38,7 +38,7 @@ public class ConfigApplyPipelineTests
     {
         Chat = ChatConfig.Default with
         {
-            Enabled = true,
+            EventRepostEnabled = true,
             Region = new RegionConfig(0, 0, 100, 100, 96, new ResolutionConfig(1920, 1080), "PRIMARY")
         },
         Audio = AudioConfig.Default with { Enabled = true },
@@ -88,7 +88,7 @@ public class ConfigApplyPipelineTests
     {
         var registry = new SpyRegistry();
         var oldCfg = BaselineEnabled();
-        var newCfg = oldCfg with { Chat = oldCfg.Chat with { Enabled = false } };
+        var newCfg = oldCfg with { Chat = oldCfg.Chat with { EventRepostEnabled = false } };
 
         await ConfigApplyPipeline.DispatchAsync(oldCfg, newCfg, registry, CancellationToken.None);
 
@@ -100,7 +100,7 @@ public class ConfigApplyPipelineTests
     {
         var registry = new SpyRegistry();
         var baseline = BaselineEnabled();
-        var oldCfg = baseline with { Chat = baseline.Chat with { Enabled = false } };
+        var oldCfg = baseline with { Chat = baseline.Chat with { EventRepostEnabled = false } };
         var newCfg = baseline;
 
         await ConfigApplyPipeline.DispatchAsync(oldCfg, newCfg, registry, CancellationToken.None);
@@ -209,7 +209,7 @@ public class ConfigApplyPipelineTests
     {
         var registry = new SpyRegistry();
         var oldCfg = BaselineEnabled();
-        oldCfg = oldCfg with { Chat = oldCfg.Chat with { Enabled = false } };
+        oldCfg = oldCfg with { Chat = oldCfg.Chat with { EventRepostEnabled = false } };
         var newCfg = oldCfg with { Chat = oldCfg.Chat with { CaptureIntervalSec = 42 } };
 
         await ConfigApplyPipeline.DispatchAsync(oldCfg, newCfg, registry, CancellationToken.None);

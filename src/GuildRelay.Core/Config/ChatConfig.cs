@@ -3,17 +3,20 @@ using System.Collections.Generic;
 namespace GuildRelay.Core.Config;
 
 public sealed record ChatConfig(
-    bool Enabled,
+    bool EventRepostEnabled,
+    bool StatsEnabled,
     int CaptureIntervalSec,
     double OcrConfidenceThreshold,
     int DefaultCooldownSec,
     RegionConfig Region,
     List<PreprocessStageConfig> PreprocessPipeline,
     List<StructuredChatRule> Rules,
+    List<CounterRule> CounterRules,
     Dictionary<string, string> Templates)
 {
     public static ChatConfig Default => new(
-        Enabled: false,
+        EventRepostEnabled: false,
+        StatsEnabled: false,
         CaptureIntervalSec: 5,
         OcrConfidenceThreshold: 0.65,
         DefaultCooldownSec: 600,
@@ -26,6 +29,15 @@ public sealed record ChatConfig(
             new("adaptiveThreshold", new Dictionary<string, double> { ["blockSize"] = 15 })
         },
         Rules: new List<StructuredChatRule>(RuleTemplates.BuiltIn["MO2 Game Events"]),
+        CounterRules: new List<CounterRule>
+        {
+            new(
+                Id: "mo2_glory",
+                Label: "Glory",
+                Channels: new List<string> { "Game" },
+                Pattern: "You gained {value} Glory.",
+                MatchMode: CounterMatchMode.Template)
+        },
         Templates: new Dictionary<string, string>
         {
             ["default"] = "**{player}** saw chat match [{rule_label}]: `{matched_text}`"

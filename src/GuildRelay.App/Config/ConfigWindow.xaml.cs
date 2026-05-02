@@ -73,7 +73,8 @@ public partial class ConfigWindow : Wpf.Ui.Controls.FluentWindow
     // both dots at once and look contradictory ("on but turning off").
     private void UpdateActiveDots(ConfigViewModel vm)
     {
-        ChatActiveDot.Visibility   = vm.PendingConfig.Chat.Enabled   ? Visibility.Visible : Visibility.Collapsed;
+        ChatActiveDot.Visibility   = (vm.PendingConfig.Chat.EventRepostEnabled || vm.PendingConfig.Chat.StatsEnabled)
+            ? Visibility.Visible : Visibility.Collapsed;
         AudioActiveDot.Visibility  = vm.PendingConfig.Audio.Enabled  ? Visibility.Visible : Visibility.Collapsed;
         StatusActiveDot.Visibility = vm.PendingConfig.Status.Enabled ? Visibility.Visible : Visibility.Collapsed;
     }

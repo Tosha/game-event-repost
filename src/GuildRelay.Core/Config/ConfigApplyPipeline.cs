@@ -22,7 +22,8 @@ public static class ConfigApplyPipeline
     {
         await DispatchFeatureAsync(
             name: "chat",
-            oldEnabled: oldConfig.Chat.Enabled, newEnabled: newConfig.Chat.Enabled,
+            oldEnabled: oldConfig.Chat.EventRepostEnabled || oldConfig.Chat.StatsEnabled,
+            newEnabled: newConfig.Chat.EventRepostEnabled || newConfig.Chat.StatsEnabled,
             oldCfg: oldConfig.Chat, newCfg: newConfig.Chat,
             equal: ConfigEquality.Equal,
             needsRestart: ChatNeedsRestart,

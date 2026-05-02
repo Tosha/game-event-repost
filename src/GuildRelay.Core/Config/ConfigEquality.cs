@@ -18,13 +18,15 @@ namespace GuildRelay.Core.Config;
 public static class ConfigEquality
 {
     public static bool Equal(ChatConfig a, ChatConfig b)
-        => a.Enabled == b.Enabled
+        => a.EventRepostEnabled == b.EventRepostEnabled
+        && a.StatsEnabled == b.StatsEnabled
         && a.CaptureIntervalSec == b.CaptureIntervalSec
         && a.OcrConfidenceThreshold == b.OcrConfidenceThreshold
         && a.DefaultCooldownSec == b.DefaultCooldownSec
         && Equals(a.Region, b.Region)
         && ListEqual(a.PreprocessPipeline, b.PreprocessPipeline, Equal)
         && ListEqual(a.Rules, b.Rules, Equal)
+        && ListEqual(a.CounterRules, b.CounterRules, Equal)
         && DictEqual(a.Templates, b.Templates);
 
     public static bool Equal(AudioConfig a, AudioConfig b)
@@ -51,6 +53,13 @@ public static class ConfigEquality
         && a.CooldownSec == b.CooldownSec
         && ListEqual(a.Channels, b.Channels, static (x, y) => x == y)
         && ListEqual(a.Keywords, b.Keywords, static (x, y) => x == y);
+
+    public static bool Equal(CounterRule a, CounterRule b)
+        => a.Id == b.Id
+        && a.Label == b.Label
+        && a.Pattern == b.Pattern
+        && a.MatchMode == b.MatchMode
+        && ListEqual(a.Channels, b.Channels, static (x, y) => x == y);
 
     public static bool Equal(PreprocessStageConfig a, PreprocessStageConfig b)
         => a.Stage == b.Stage

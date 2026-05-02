@@ -39,7 +39,7 @@ public class ChatWatcherTests
     {
         var config = ChatConfig.Default with
         {
-            Enabled = true,
+            EventRepostEnabled = true, StatsEnabled = false,
             CaptureIntervalSec = 1,
             OcrConfidenceThreshold = 0.5,
             Region = new RegionConfig(0, 0, 100, 100, 96,

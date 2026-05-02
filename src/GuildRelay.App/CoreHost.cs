@@ -91,7 +91,7 @@ public sealed class CoreHost : IAsyncDisposable
             chatCapture, chatOcr, chatPipeline, bus, config.Chat, config.General.PlayerName);
         registry.Register(chatWatcher);
 
-        if (config.Chat.Enabled && !config.Chat.Region.IsEmpty)
+        if ((config.Chat.EventRepostEnabled || config.Chat.StatsEnabled) && !config.Chat.Region.IsEmpty)
             await chatWatcher.StartAsync(System.Threading.CancellationToken.None).ConfigureAwait(false);
 
         // Register Audio Watcher
