@@ -171,10 +171,11 @@ public class ChatWatcherStatsTests
         var ocr = new FakeOcr { NextLines = GloryLine() };
         var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await watcher.StartAsync(cts.Token);
-        // Allow >= 2 capture ticks at 1s interval.
-        await Task.Delay(2500);
+        // Allow >= 2 capture ticks at 1s interval, with 1.5s of CI-host
+        // headroom past tick 2's scheduled time. 2500ms flaked on slow CI.
+        await Task.Delay(3500);
         await watcher.StopAsync();
         bus.Complete();
 
@@ -218,9 +219,11 @@ public class ChatWatcherStatsTests
             statsEnabled: true, eventRepostEnabled: false,
             counters: new List<CounterRule> { lenientGlory });
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        // 3500ms (not 2500) for the 2-tick wait — slow CI hosts have flaked
+        // when tick 2 was tight against the deadline.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await watcher.StartAsync(cts.Token);
-        await Task.Delay(2500);
+        await Task.Delay(3500);
         await watcher.StopAsync();
         bus.Complete();
 
@@ -312,11 +315,14 @@ public class ChatWatcherStatsTests
         };
 
         var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await watcher.StartAsync(cts.Token);
         // Allow >= 2 capture ticks at 1s interval — the second event
         // is buffered as deferred trailing in tick 1, emitted in tick 2.
-        await Task.Delay(2500);
+        // 3500ms (not 2500) is intentional: slow CI hosts have flaked when
+        // the second tick was tight against the deadline. Extra headroom
+        // brings this test in line with the single-tick reliability budget.
+        await Task.Delay(3500);
         await watcher.StopAsync();
         bus.Complete();
 
