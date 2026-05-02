@@ -47,4 +47,56 @@ public class StatsViewModelTests
         vm.Refresh();
         vm.BadgeState.Should().Be("Stats: OFF");
     }
+
+    [Fact]
+    public void RulesWithoutEventsRenderAsZeroRows()
+    {
+        var agg = new StatsAggregator();
+        var vm = new StatsViewModel(agg, () => T0, () => new[] { Glory() }, () => true);
+
+        vm.Refresh();
+
+        vm.Rows.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new CounterRowVm("Glory", 0, 0));
+        vm.HasNoRules.Should().BeFalse();
+    }
+
+    [Fact]
+    public void NoRulesAndNoEventsSetsHasNoRules()
+    {
+        var agg = new StatsAggregator();
+        var vm = new StatsViewModel(agg, () => T0, () => System.Array.Empty<CounterRule>(), () => true);
+
+        vm.Refresh();
+
+        vm.Rows.Should().BeEmpty();
+        vm.HasNoRules.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ResetCounterCallsAggregator()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 80, T0);
+
+        var vm = new StatsViewModel(agg, () => T0, () => new[] { Glory() }, () => true);
+        vm.ResetCounter("Glory");
+        vm.Refresh();
+
+        vm.Rows[0].Total.Should().Be(0);
+    }
+
+    [Fact]
+    public void ResetAllClearsAllCounters()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 80, T0);
+        agg.Record("Standing", 5, T0);
+
+        var vm = new StatsViewModel(agg, () => T0, () => new[] { Glory() }, () => true);
+        vm.ResetAll();
+        vm.Refresh();
+
+        vm.Rows.Should().AllSatisfy(r => r.Total.Should().Be(0));
+    }
 }
