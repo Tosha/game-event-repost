@@ -75,11 +75,11 @@ public static class Program
         int notchDepth = Math.Max(1, pennantWidth / 4);
 
         var attachX = poleX + poleWidth;
-        // Clamp flyX so the rightmost fly corners render INSIDE the canvas.
-        // At 24 px specifically, the unclamped flyX would equal 24 (the bitmap's
-        // out-of-bounds column), GDI+ would silently clip, and the fly corners
-        // would render flat instead of sharp. Subtracting 1 keeps the corners
-        // at the last valid pixel column at any size.
+        // Clamp flyX inside the canvas. Defensive: with the current 0.65 width
+        // factor this is a no-op at every target size (attachX + pennantWidth
+        // already lands at size-1 or earlier). Raising the factor (e.g. to 0.70)
+        // would push flyX into the out-of-bounds column where GDI+ silently
+        // clips, leaving the fly corners flat instead of sharp.
         var flyX = Math.Min(attachX + pennantWidth, size - 1);
         var pennantPoints = new[]
         {
