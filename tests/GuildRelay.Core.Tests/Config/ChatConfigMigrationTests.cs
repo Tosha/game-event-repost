@@ -50,4 +50,25 @@ public class ChatConfigMigrationTests
         cfg.Chat.CounterRules.Should().NotBeEmpty(); // Glory built-in injected by migration
         cfg.Chat.CounterRules[0].Id.Should().Be("mo2_glory");
     }
+
+    [Fact]
+    public async Task NewSchemaConfigIsLeftUnchanged()
+    {
+        var path = FreshConfigPath();
+        var store = new ConfigStore(path);
+
+        // Save a config in the new schema (eventRepostEnabled / counterRules already present).
+        var initial = AppConfig.Default with
+        {
+            Chat = AppConfig.Default.Chat with { EventRepostEnabled = true, StatsEnabled = true }
+        };
+        await store.SaveAsync(initial);
+
+        // Reload — migration should be a no-op on a config that's already in the new schema.
+        var reopened = await new ConfigStore(path).LoadOrCreateDefaultsAsync();
+
+        reopened.Chat.EventRepostEnabled.Should().BeTrue();
+        reopened.Chat.StatsEnabled.Should().BeTrue();
+        reopened.Chat.CounterRules.Should().HaveCount(initial.Chat.CounterRules.Count);
+    }
 }

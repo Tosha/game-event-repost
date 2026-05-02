@@ -104,7 +104,7 @@ public sealed class ConfigStore
             changed = true;
         }
 
-        if (!chatEl.TryGetProperty("counterRules", out _) || chat.CounterRules.Count == 0)
+        if (!chatEl.TryGetProperty("counterRules", out _))
         {
             chat = chat with { CounterRules = new System.Collections.Generic.List<CounterRule>(ChatConfig.Default.CounterRules) };
             changed = true;
