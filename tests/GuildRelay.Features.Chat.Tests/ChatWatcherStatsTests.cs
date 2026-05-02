@@ -290,4 +290,69 @@ public class ChatWatcherStatsTests
         stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
             .Which.Total.Should().Be(160);
     }
+
+    [Fact]
+    public async Task RecordsBothAdjacentEventsWhenSecondIsTrailing()
+    {
+        var stats = new StatsAggregator();
+        var bus = new EventBus(capacity: 16);
+
+        // User-reported scenario: two adjacent in-game events with identical
+        // value (22 Glory at 21:01:16 and 21:01:17), both visible on screen,
+        // no terminator line below the second. The second event becomes the
+        // deferred trailing in tick 1; the first event is the only Completed
+        // message. Counter should record BOTH across tick 1 + tick 2.
+        var ocr = new FakeOcr
+        {
+            NextLines = new()
+            {
+                new("[21:01:16][Game] You gained 22 Glory.", 0.9f, RectangleF.Empty),
+                new("[21:01:17][Game] You gained 22 Glory.", 0.9f, RectangleF.Empty),
+            }
+        };
+
+        var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        await watcher.StartAsync(cts.Token);
+        // Allow >= 2 capture ticks at 1s interval — the second event
+        // is buffered as deferred trailing in tick 1, emitted in tick 2.
+        await Task.Delay(2500);
+        await watcher.StopAsync();
+        bus.Complete();
+
+        stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
+            .Which.Total.Should().Be(44);
+    }
+
+    [Fact]
+    public async Task EagerlyRecordsTrailingMessageWithinSingleTick()
+    {
+        var stats = new StatsAggregator();
+        var bus = new EventBus(capacity: 16);
+
+        // Same scenario as RecordsBothAdjacentEventsWhenSecondIsTrailing but
+        // with a single-tick wait. With eager-emit, the counter should record
+        // BOTH events within the first capture tick — no need to wait for the
+        // deferred trailing to be confirmed in a later tick. This is the user-
+        // reported bug: with the default 5-second capture interval, waiting
+        // for tick 2 to register the second event feels broken.
+        var ocr = new FakeOcr
+        {
+            NextLines = new()
+            {
+                new("[21:01:16][Game] You gained 22 Glory.", 0.9f, RectangleF.Empty),
+                new("[21:01:17][Game] You gained 22 Glory.", 0.9f, RectangleF.Empty),
+            }
+        };
+
+        var watcher = Build(ocr, bus, stats, statsEnabled: true, eventRepostEnabled: false);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await watcher.StartAsync(cts.Token);
+        await Task.Delay(1500);  // a single tick at 1s interval
+        await watcher.StopAsync();
+        bus.Complete();
+
+        stats.Snapshot(DateTimeOffset.UtcNow).Should().ContainSingle()
+            .Which.Total.Should().Be(44);
+    }
 }
