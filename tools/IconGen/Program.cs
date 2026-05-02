@@ -19,7 +19,9 @@ namespace IconGen;
 public static class Program
 {
     private static readonly int[] Sizes = { 16, 24, 32, 48, 64, 256 };
-    private static readonly Color GoldColor = Color.FromArgb(0xFF, 0xD4, 0xAF, 0x37);
+    // Heraldic gules (red) for the pennant; pure black for the pole.
+    private static readonly Color FlagColor = Color.FromArgb(0xFF, 0xC8, 0x10, 0x2E);
+    private static readonly Color PoleColor = Color.FromArgb(0xFF, 0x00, 0x00, 0x00);
     private const string DefaultOutputPath = "src/GuildRelay.App/Assets/tray.ico";
 
     public static int Main(string[] args)
@@ -63,10 +65,11 @@ public static class Program
         int poleWidth = Math.Max(1, size / 16);
         int poleX = size / 4;
 
-        using var goldBrush = new SolidBrush(GoldColor);
+        using var poleBrush = new SolidBrush(PoleColor);
+        using var flagBrush = new SolidBrush(FlagColor);
 
-        // Pole: full canvas height
-        g.FillRectangle(goldBrush, poleX, 0, poleWidth, size);
+        // Pole: black, full canvas height
+        g.FillRectangle(poleBrush, poleX, 0, poleWidth, size);
 
         // Pennant: 5-point swallow-tail polygon attached to top of pole
         int pennantWidth = (int)Math.Round(size * 0.65);
@@ -90,7 +93,7 @@ public static class Program
             new Point(flyX, pennantTop + pennantHeight),                     // bottom-right (fly bottom)
             new Point(attachX, pennantTop + pennantHeight),                  // bottom-left
         };
-        g.FillPolygon(goldBrush, pennantPoints);
+        g.FillPolygon(flagBrush, pennantPoints);
 
         return bitmap;
     }
