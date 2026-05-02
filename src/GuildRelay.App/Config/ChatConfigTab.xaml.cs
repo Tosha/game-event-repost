@@ -28,6 +28,7 @@ public partial class ChatConfigTab : UserControl
         var chat = _vm.PendingConfig.Chat;
         EventRepostToggle.IsChecked = chat.EventRepostEnabled;
         StatsToggle.IsChecked       = chat.StatsEnabled;
+        UpdateSectionVisibility();
         UpdateRegionLabel(chat.Region);
         RefreshRulesList();
         RefreshCountersList();
@@ -37,10 +38,24 @@ public partial class ChatConfigTab : UserControl
         _loading = false;
     }
 
+    /// <summary>
+    /// Show each sub-section's body iff its toggle is on. Keeps the tab compact
+    /// when a sub-feature is disabled — the rules list / templates / etc.
+    /// collapse to nothing, leaving only the toggle row + description.
+    /// </summary>
+    private void UpdateSectionVisibility()
+    {
+        EventRepostBody.Visibility = (EventRepostToggle.IsChecked ?? false)
+            ? Visibility.Visible : Visibility.Collapsed;
+        StatsBody.Visibility = (StatsToggle.IsChecked ?? false)
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     // --- Toggles ---
 
     private void OnEventRepostChanged(object sender, RoutedEventArgs e)
     {
+        UpdateSectionVisibility();
         if (_loading || _vm is null) return;
         _vm.SetPendingChat(_vm.PendingConfig.Chat with
         {
@@ -50,6 +65,7 @@ public partial class ChatConfigTab : UserControl
 
     private void OnStatsChanged(object sender, RoutedEventArgs e)
     {
+        UpdateSectionVisibility();
         if (_loading || _vm is null) return;
         _vm.SetPendingChat(_vm.PendingConfig.Chat with
         {
