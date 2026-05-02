@@ -55,4 +55,28 @@ public class StatsAggregatorTests
         snap.Should().ContainSingle()
             .Which.Total.Should().Be(110);
     }
+
+    [Fact]
+    public void Last60MinExcludesEventsOlderThan60Minutes()
+    {
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 100, T0);
+        agg.Record("Glory", 50, T0.AddMinutes(30));
+
+        var snap = agg.Snapshot(T0.AddMinutes(70));
+        snap.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new CounterSnapshot("Glory", 150, 50));
+    }
+
+    [Fact]
+    public void Last60MinExcludesEventsAtExactly60MinBoundary()
+    {
+        // strict > now - 60min. An event timestamped exactly 60 minutes ago is excluded.
+        var agg = new StatsAggregator();
+        agg.Record("Glory", 100, T0);
+
+        var snap = agg.Snapshot(T0.AddMinutes(60));
+        snap.Should().ContainSingle()
+            .Which.Last60Min.Should().Be(0);
+    }
 }
